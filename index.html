@@ -5,388 +5,386 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guía de uso del datáfono — ePayco</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-    :root {
-      --bg:        #1a1a2e;
-      --surface:   #16213e;
-      --accent:    #00c6b8;
-      --accent2:   #0f3460;
-      --text:      #e0e0e0;
-      --shadow:    rgba(0,0,0,.6);
+    html, body {
+      height: 100%;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
     }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100dvh;
+    /* ── Layout ── */
+    .app {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      height: 100dvh;
     }
 
     /* ── Header ── */
-    header {
-      width: 100%;
-      padding: 18px 32px;
+    .header {
+      flex-shrink: 0;
+      background: #1e293b;
+      border-bottom: 1px solid #1e3a5f;
+      padding: 12px 20px;
       display: flex;
       align-items: center;
-      gap: 14px;
-      background: var(--surface);
-      border-bottom: 2px solid var(--accent2);
+      gap: 10px;
     }
-    header .logo {
-      font-size: 1.5rem;
+    .header-logo {
+      font-size: 1.15rem;
       font-weight: 700;
-      color: var(--accent);
-      letter-spacing: -0.5px;
+      color: #00c6b8;
     }
-    header .logo span { color: var(--text); font-weight: 300; }
-    header .subtitle {
-      font-size: .85rem;
-      opacity: .7;
-      margin-top: 2px;
+    .header-logo span { color: #e2e8f0; font-weight: 300; }
+    .header-sub {
+      font-size: .72rem;
+      color: #64748b;
+      margin-top: 1px;
     }
 
-    /* ── Stage ── */
-    #stage {
+    /* ── Viewer ── */
+    .viewer {
       flex: 1;
-      width: 100%;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 32px 16px 16px;
-      gap: 24px;
-    }
-
-    /* ── Flipbook wrapper ── */
-    #flipbook-wrap {
       position: relative;
-      /* size is set by JS */
+      overflow: hidden;
     }
 
-    /* Loading overlay */
-    #loading {
+    /* click zones */
+    .zone {
       position: absolute;
-      inset: 0;
+      top: 0; bottom: 0;
+      width: 38%;
+      z-index: 5;
+      cursor: pointer;
+    }
+    .zone-left  { left: 0; }
+    .zone-right { right: 0; }
+
+    /* page frame */
+    .book {
+      position: relative;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: var(--surface);
-      border-radius: 4px;
-      z-index: 10;
-      gap: 14px;
-      font-size: .9rem;
-      opacity: .9;
     }
-    #loading .spinner {
-      width: 42px; height: 42px;
-      border: 4px solid var(--accent2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Controls ── */
-    #controls {
+    .page-wrap {
+      position: relative;
+      perspective: 1800px;
+    }
+
+    .page-img {
+      display: block;
+      border-radius: 3px;
+      box-shadow:
+        0 2px 4px rgba(0,0,0,.4),
+        0 8px 24px rgba(0,0,0,.55),
+        0 24px 60px rgba(0,0,0,.45),
+        4px 0 12px rgba(0,0,0,.3);
+      user-select: none;
+      -webkit-user-drag: none;
+      /* size set by JS */
+    }
+
+    /* flip animations */
+    .page-wrap.go-next { animation: flipNext .45s ease both; }
+    .page-wrap.go-prev { animation: flipPrev .45s ease both; }
+
+    @keyframes flipNext {
+      0%   { transform: rotateY(0deg);   opacity: 1; }
+      45%  { transform: rotateY(88deg);  opacity: 0; }
+      55%  { transform: rotateY(-88deg); opacity: 0; }
+      100% { transform: rotateY(0deg);   opacity: 1; }
+    }
+    @keyframes flipPrev {
+      0%   { transform: rotateY(0deg);  opacity: 1; }
+      45%  { transform: rotateY(-88deg); opacity: 0; }
+      55%  { transform: rotateY(88deg);  opacity: 0; }
+      100% { transform: rotateY(0deg);  opacity: 1; }
+    }
+
+    /* side arrows */
+    .arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      width: 40px; height: 40px;
+      background: rgba(15,23,42,.85);
+      border: 1px solid #1e3a5f;
+      border-radius: 50%;
+      cursor: pointer;
+      color: #94a3b8;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s, border-color .15s, transform .15s;
+      backdrop-filter: blur(6px);
+    }
+    .arrow:hover { background: #1e293b; color: #00c6b8; border-color: #00c6b8; transform: translateY(-50%) scale(1.08); }
+    .arrow.disabled { opacity: .2; pointer-events: none; }
+    .arrow-left  { left: -20px; }
+    .arrow-right { right: -20px; }
+    .arrow svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Bottom bar ── */
+    .bottom {
+      flex-shrink: 0;
+      background: #1e293b;
+      border-top: 1px solid #1e3a5f;
+      padding: 8px 16px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bottom-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      background: var(--surface);
-      border: 1px solid var(--accent2);
-      border-radius: 40px;
-      padding: 8px 20px;
-      user-select: none;
+      justify-content: center;
+      gap: 10px;
     }
 
-    .btn {
+    .icon-btn {
       background: none;
       border: none;
       cursor: pointer;
-      color: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px;
-      border-radius: 50%;
-      transition: background .2s, transform .15s;
-      font-size: 0;
+      color: #64748b;
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s;
     }
-    .btn:hover  { background: var(--accent2); transform: scale(1.1); }
-    .btn:active { transform: scale(.95); }
-    .btn svg { width: 22px; height: 22px; fill: currentColor; }
-    .btn:disabled { opacity: .3; cursor: default; }
-    .btn:disabled:hover { background: none; transform: none; }
+    .icon-btn:hover { color: #00c6b8; background: #0f172a; }
+    .icon-btn.disabled, .icon-btn:disabled { opacity: .25; pointer-events: none; }
+    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
-    #page-info {
-      font-size: .85rem;
-      min-width: 90px;
+    .counter {
+      font-size: .82rem;
+      color: #94a3b8;
+      min-width: 52px;
       text-align: center;
-      color: var(--text);
-      opacity: .75;
     }
 
-    .sep {
-      width: 1px; height: 20px;
-      background: var(--accent2);
-      margin: 0 4px;
-    }
+    .divider { width: 1px; height: 18px; background: #1e3a5f; }
 
-    /* Zoom buttons */
-    .zoom-btn svg { width: 18px; height: 18px; }
-
-    /* ── Thumbnail bar ── */
-    #thumbs {
+    /* thumbnails */
+    .thumbs {
       display: flex;
-      gap: 6px;
+      gap: 5px;
       overflow-x: auto;
-      max-width: min(900px, 95vw);
-      padding: 6px 4px 10px;
+      padding-bottom: 2px;
       scrollbar-width: thin;
-      scrollbar-color: var(--accent2) transparent;
+      scrollbar-color: #1e3a5f transparent;
     }
-    #thumbs::-webkit-scrollbar { height: 4px; }
-    #thumbs::-webkit-scrollbar-thumb { background: var(--accent2); border-radius: 2px; }
+    .thumbs::-webkit-scrollbar { height: 3px; }
+    .thumbs::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
 
     .thumb {
       flex-shrink: 0;
-      width: 52px; height: 52px;
-      border-radius: 4px;
+      width: 46px; height: 46px;
+      border-radius: 3px;
       overflow: hidden;
       cursor: pointer;
       border: 2px solid transparent;
-      transition: border-color .2s, opacity .2s;
-      opacity: .55;
+      opacity: .45;
+      transition: opacity .15s, border-color .15s;
     }
-    .thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .thumb:hover  { opacity: .85; border-color: var(--accent); }
-    .thumb.active { opacity: 1;   border-color: var(--accent); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb:hover  { opacity: .8;  border-color: #00c6b8; }
+    .thumb.active { opacity: 1;   border-color: #00c6b8; }
 
-    /* ── Hints ── */
-    .hint {
-      font-size: .75rem;
-      opacity: .4;
-      text-align: center;
-      padding-bottom: 16px;
-    }
-
-    /* ── Mobile tweaks ── */
-    @media (max-width: 600px) {
-      header { padding: 12px 16px; }
-      .thumb { width: 40px; height: 40px; }
+    /* ── Mobile ── */
+    @media (max-width: 480px) {
+      .thumb { width: 38px; height: 38px; }
     }
   </style>
 </head>
 <body>
+<div class="app">
 
-<header>
-  <div>
-    <div class="logo">ePayco <span>Datáfono</span></div>
-    <div class="subtitle">Guía de uso del datáfono</div>
-  </div>
-</header>
-
-<main id="stage">
-
-  <div id="flipbook-wrap">
-    <div id="loading">
-      <div class="spinner"></div>
-      Cargando guía…
+  <header class="header">
+    <div>
+      <div class="header-logo">ePayco <span>Datáfono</span></div>
+      <div class="header-sub">Guía de uso del datáfono</div>
     </div>
-    <!-- page images injected by JS -->
-    <div id="flipbook"></div>
+  </header>
+
+  <div class="viewer" id="viewer">
+    <div class="zone zone-left"  id="zoneLeft"></div>
+    <div class="zone zone-right" id="zoneRight"></div>
+
+    <div class="book" id="book">
+      <div class="page-wrap" id="pageWrap">
+        <img class="page-img" id="pageImg" src="pages/page-01.png" alt="Página 1" draggable="false" />
+      </div>
+
+      <button class="arrow arrow-left disabled"  id="arrowLeft">
+        <svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
+      </button>
+      <button class="arrow arrow-right" id="arrowRight">
+        <svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+      </button>
+    </div>
   </div>
 
-  <div id="controls">
-    <!-- First -->
-    <button class="btn" id="btn-first" title="Primera página">
-      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-    </button>
-    <!-- Prev -->
-    <button class="btn" id="btn-prev" title="Página anterior">
-      <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-    </button>
+  <div class="bottom">
+    <div class="bottom-row">
+      <!-- first -->
+      <button class="icon-btn disabled" id="btnFirst" title="Primera página">
+        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+      </button>
+      <!-- prev -->
+      <button class="icon-btn disabled" id="btnPrev" title="Anterior">
+        <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
 
-    <span id="page-info">1 / 18</span>
+      <span class="counter" id="counter">1 / 18</span>
 
-    <!-- Next -->
-    <button class="btn" id="btn-next" title="Página siguiente">
-      <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-    </button>
-    <!-- Last -->
-    <button class="btn" id="btn-last" title="Última página">
-      <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zm-8.5 6L16 6v12z"/></svg>
-    </button>
+      <!-- next -->
+      <button class="icon-btn" id="btnNext" title="Siguiente">
+        <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+      <!-- last -->
+      <button class="icon-btn" id="btnLast" title="Última página">
+        <svg viewBox="0 0 24 24"><path d="M18 6h-2v12h2zm-3.5 6L6 6v12z"/></svg>
+      </button>
 
-    <div class="sep"></div>
+      <div class="divider"></div>
 
-    <!-- Zoom out -->
-    <button class="btn zoom-btn" id="btn-zoom-out" title="Reducir">
-      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7z"/></svg>
-    </button>
-    <!-- Zoom in -->
-    <button class="btn zoom-btn" id="btn-zoom-in" title="Ampliar">
-      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-5H9v2H7v1h2v2h1v-2h2V10h-2V8z"/></svg>
-    </button>
+      <!-- fullscreen -->
+      <button class="icon-btn" id="btnFs" title="Pantalla completa">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zm-3-12v2h3v3h2V5h-5z"/></svg>
+      </button>
+    </div>
+
+    <div class="thumbs" id="thumbs"></div>
   </div>
 
-  <!-- Thumbnails -->
-  <div id="thumbs"></div>
-
-  <p class="hint">Haz clic en los bordes de la página o usa las flechas para navegar · Arrastra para voltear</p>
-
-</main>
-
-<!-- StPageFlip -->
-<script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.js"></script>
-
+</div>
 <script>
-  const TOTAL = 18;
-  const PAGES = Array.from({ length: TOTAL }, (_, i) => {
-    const n = String(i + 1).padStart(2, '0');
-    return `pages/page-${n}.png`;
-  });
+const TOTAL = 18;
+const SRCS  = Array.from({length: TOTAL}, (_, i) =>
+  `pages/page-${String(i + 1).padStart(2, '0')}.png`
+);
 
-  /* ── Responsive sizing ── */
-  function calcSize() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    // Available area after header (~70px) + controls (~60px) + thumbs (~70px)
-    const maxH = vh - 70 - 60 - 90 - 64; // 64px extra padding
-    const maxW = Math.min(vw * 0.92, 900);
-    // Pages are square; double-spread = 2 pages side by side
-    // Single page width = half of available width (min 280)
-    const pageW = Math.max(280, Math.min(Math.floor(maxW / 2), Math.floor(maxH)));
-    const pageH = pageW; // square pages
-    return { pageW, pageH };
-  }
+let cur      = 0;
+let busy     = false;
 
-  let { pageW, pageH } = calcSize();
+const viewer    = document.getElementById('viewer');
+const pageWrap  = document.getElementById('pageWrap');
+const pageImg   = document.getElementById('pageImg');
+const counter   = document.getElementById('counter');
+const arrowL    = document.getElementById('arrowLeft');
+const arrowR    = document.getElementById('arrowRight');
+const btnFirst  = document.getElementById('btnFirst');
+const btnPrev   = document.getElementById('btnPrev');
+const btnNext   = document.getElementById('btnNext');
+const btnLast   = document.getElementById('btnLast');
+const btnFs     = document.getElementById('btnFs');
+const thumbsEl  = document.getElementById('thumbs');
 
-  /* ── Build flipbook container ── */
-  const wrap = document.getElementById('flipbook-wrap');
-  const fb   = document.getElementById('flipbook');
+/* ── Build thumbnails ── */
+SRCS.forEach((src, i) => {
+  const d   = document.createElement('div');
+  d.className = 'thumb' + (i === 0 ? ' active' : '');
+  d.title   = `Página ${i + 1}`;
+  const img = document.createElement('img');
+  img.src   = src; img.alt = '';
+  img.loading = 'lazy';
+  d.appendChild(img);
+  d.addEventListener('click', () => go(i));
+  thumbsEl.appendChild(d);
+});
+const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
-  function applySize() {
-    ({ pageW, pageH } = calcSize());
-    wrap.style.width  = (pageW * 2) + 'px';
-    wrap.style.height = pageH + 'px';
-  }
-  applySize();
+/* ── Sizing ── */
+function resize() {
+  const vw  = viewer.clientWidth;
+  const vh  = viewer.clientHeight;
+  const sz  = Math.floor(Math.min(vw - 72, vh - 24, 680));
+  pageImg.style.width  = sz + 'px';
+  pageImg.style.height = sz + 'px';
+  pageImg.style.objectFit = 'contain';
+}
+window.addEventListener('resize', resize);
+resize();
 
-  /* ── Inject page images ── */
-  PAGES.forEach(src => {
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = '';
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
-    fb.appendChild(img);
-  });
+/* ── Update UI state ── */
+function updateUI() {
+  counter.textContent = `${cur + 1} / ${TOTAL}`;
+  const first = cur <= 0;
+  const last  = cur >= TOTAL - 1;
+  arrowL.classList.toggle('disabled', first);
+  arrowR.classList.toggle('disabled', last);
+  btnFirst.classList.toggle('disabled', first);
+  btnPrev.classList.toggle('disabled', first);
+  btnNext.classList.toggle('disabled', last);
+  btnLast.classList.toggle('disabled', last);
+  thumbEls.forEach((t, i) => t.classList.toggle('active', i === cur));
+  thumbEls[cur]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
+}
 
-  /* ── Thumbnails ── */
-  const thumbsEl = document.getElementById('thumbs');
-  PAGES.forEach((src, i) => {
-    const d   = document.createElement('div');
-    d.className = 'thumb' + (i === 0 ? ' active' : '');
-    d.title = `Página ${i + 1}`;
-    const img = document.createElement('img');
-    img.src = src; img.alt = '';
-    d.appendChild(img);
-    d.addEventListener('click', () => pageFlip.flip(i));
-    thumbsEl.appendChild(d);
-  });
+/* ── Navigate ── */
+function go(to) {
+  if (busy || to === cur || to < 0 || to >= TOTAL) return;
+  busy = true;
 
-  /* ── Init StPageFlip ── */
-  const pageFlip = new St.PageFlip(fb, {
-    width:  pageW,
-    height: pageH,
-    size:   'fixed',
-    minWidth:  280,
-    minHeight: 280,
-    maxWidth:  600,
-    maxHeight: 600,
-    showCover:    true,
-    mobileScrollSupport: false,
-    usePortrait:  false,
-    autoSize:     false,
-    drawShadow:   true,
-    flippingTime: 700,
-    startPage: 0,
-  });
+  const cls = to > cur ? 'go-next' : 'go-prev';
+  pageWrap.classList.add(cls);
 
-  pageFlip.loadFromImages(PAGES);
+  // Swap image at mid-point of animation
+  setTimeout(() => {
+    cur = to;
+    pageImg.src = SRCS[cur];
+    pageImg.alt = `Página ${cur + 1}`;
+    updateUI();
+  }, 225);
 
-  /* ── UI helpers ── */
-  const infoEl     = document.getElementById('page-info');
-  const btnFirst   = document.getElementById('btn-first');
-  const btnPrev    = document.getElementById('btn-prev');
-  const btnNext    = document.getElementById('btn-next');
-  const btnLast    = document.getElementById('btn-last');
-  const btnZoomIn  = document.getElementById('btn-zoom-in');
-  const btnZoomOut = document.getElementById('btn-zoom-out');
-  const thumbEls   = thumbsEl.querySelectorAll('.thumb');
+  pageWrap.addEventListener('animationend', () => {
+    pageWrap.classList.remove(cls);
+    busy = false;
+  }, {once: true});
+}
 
-  let zoomLevel = 1;
-  const ZOOM_STEP = 0.15, ZOOM_MIN = 0.6, ZOOM_MAX = 2;
+/* ── Controls ── */
+arrowL.addEventListener ('click', () => go(cur - 1));
+arrowR.addEventListener ('click', () => go(cur + 1));
+btnFirst.addEventListener('click', () => go(0));
+btnPrev.addEventListener ('click', () => go(cur - 1));
+btnNext.addEventListener ('click', () => go(cur + 1));
+btnLast.addEventListener ('click', () => go(TOTAL - 1));
 
-  function updateInfo() {
-    const p = pageFlip.getCurrentPageIndex() + 1;
-    infoEl.textContent = `${p} / ${TOTAL}`;
-    btnFirst.disabled = btnPrev.disabled = (p <= 1);
-    btnLast.disabled  = btnNext.disabled = (p >= TOTAL);
-    thumbEls.forEach((t, i) => t.classList.toggle('active', i === p - 1));
-    // scroll active thumb into view
-    thumbEls[p - 1]?.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
-  }
+document.getElementById('zoneLeft') .addEventListener('click', () => go(cur - 1));
+document.getElementById('zoneRight').addEventListener('click', () => go(cur + 1));
 
-  function applyZoom() {
-    wrap.style.transform       = `scale(${zoomLevel})`;
-    wrap.style.transformOrigin = 'top center';
-    btnZoomIn.disabled  = zoomLevel >= ZOOM_MAX;
-    btnZoomOut.disabled = zoomLevel <= ZOOM_MIN;
-  }
+/* keyboard */
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(cur + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(cur - 1);
+  if (e.key === 'Home') go(0);
+  if (e.key === 'End')  go(TOTAL - 1);
+});
 
-  /* ── Events ── */
-  pageFlip.on('flip',   updateInfo);
-  pageFlip.on('changeState', updateInfo);
+/* touch swipe */
+let tx = 0;
+viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive: true});
+viewer.addEventListener('touchend',   e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  if (Math.abs(dx) > 40) dx < 0 ? go(cur + 1) : go(cur - 1);
+}, {passive: true});
 
-  pageFlip.on('init', () => {
-    document.getElementById('loading').style.display = 'none';
-    updateInfo();
-  });
+/* fullscreen */
+btnFs.addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen();
+});
+document.addEventListener('fullscreenchange', () => setTimeout(resize, 100));
 
-  btnFirst.addEventListener('click', () => pageFlip.flip(0));
-  btnLast.addEventListener ('click', () => pageFlip.flip(TOTAL - 1));
-  btnPrev.addEventListener ('click', () => pageFlip.flipPrev());
-  btnNext.addEventListener ('click', () => pageFlip.flipNext());
-
-  btnZoomIn.addEventListener ('click', () => { zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2)); applyZoom(); });
-  btnZoomOut.addEventListener('click', () => { zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2)); applyZoom(); });
-
-  /* Keyboard navigation */
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  pageFlip.flipNext();
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    pageFlip.flipPrev();
-    if (e.key === 'Home') pageFlip.flip(0);
-    if (e.key === 'End')  pageFlip.flip(TOTAL - 1);
-    if (e.key === '+' || e.key === '=') btnZoomIn.click();
-    if (e.key === '-')                  btnZoomOut.click();
-  });
-
-  /* Resize */
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      applySize();
-      pageFlip.update();
-    }, 200);
-  });
+updateUI();
 </script>
-
 </body>
 </html>
