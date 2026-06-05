@@ -6,188 +6,116 @@
   <title>Guía de uso del datáfono — ePayco</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #0f172a; color: #e2e8f0;
+      font-family: system-ui, sans-serif; overflow: hidden; }
 
-    html, body {
-      height: 100%;
-      background: #0f172a;
-      color: #e2e8f0;
-      font-family: system-ui, -apple-system, sans-serif;
-      overflow: hidden;
+    .app { display: flex; flex-direction: column; height: 100dvh; }
+
+    /* Header */
+    .header { flex-shrink:0; background:#1e293b; border-bottom:1px solid #1e3a5f;
+      padding:11px 20px; }
+    .hl { font-size:1.1rem; font-weight:700; color:#00c6b8; }
+    .hl span { color:#e2e8f0; font-weight:300; }
+    .hs { font-size:.7rem; color:#64748b; margin-top:1px; }
+
+    /* Viewer */
+    .viewer { flex:1; display:flex; align-items:center; justify-content:center;
+      overflow:hidden; padding:12px 54px; position:relative; }
+
+    /* Stage: sized by JS */
+    #stage { position:relative; }
+
+    /* Resting layer: two pages + spine */
+    #rest { display:flex; align-items:stretch; }
+    #rest img { display:block; object-fit:contain; }
+    .spine { width:5px; flex-shrink:0;
+      background:linear-gradient(to right,#091523 0%,#1e3a5f 45%,#1e3a5f 55%,#091523 100%); }
+    #pgL { border-radius:3px 0 0 3px;
+      box-shadow:-4px 2px 18px rgba(0,0,0,.65); }
+    #pgR { border-radius:0 3px 3px 0;
+      box-shadow: 4px 2px 18px rgba(0,0,0,.65); }
+    #rest.single #pgL { border-radius:3px;
+      box-shadow:0 6px 36px rgba(0,0,0,.75); }
+
+    /* Animation overlay: absolute on top of #rest */
+    #anim { position:absolute; inset:0; pointer-events:none; }
+
+    /* Shadow cast on the static page */
+    #pgShadow { position:absolute; top:0; bottom:0; pointer-events:none; z-index:4; }
+
+    /* The turning card */
+    #turnCard { position:absolute; transform-style:preserve-3d; z-index:3; }
+    #turnCard .face { position:absolute; inset:0;
+      backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden; }
+    #turnCard .face img { width:100%; height:100%; object-fit:contain; display:block; }
+    #turnFront { border-radius:0 3px 3px 0; }
+    #turnBack  { border-radius:3px 0 0 3px; transform:rotateY(180deg); }
+
+    /* Lift gradient on front edge while turning */
+    #turnFront::after { content:''; position:absolute; inset:0; pointer-events:none;
+      background:linear-gradient(to left, rgba(0,0,0,0) 60%, rgba(0,0,0,.25) 100%); }
+    /* Shadow bevel on back when revealed */
+    #turnBack::after  { content:''; position:absolute; inset:0; pointer-events:none;
+      background:linear-gradient(to right, rgba(0,0,0,.22) 0%, rgba(0,0,0,0) 35%); }
+
+    @keyframes turnFwd {
+      from { transform:perspective(1800px) rotateY(0deg);   }
+      to   { transform:perspective(1800px) rotateY(-180deg);}
+    }
+    @keyframes turnBwd {
+      from { transform:perspective(1800px) rotateY(0deg);  }
+      to   { transform:perspective(1800px) rotateY(180deg);}
+    }
+    @keyframes shadowFwd {
+      0%{opacity:0} 25%{opacity:1} 75%{opacity:.8} 100%{opacity:0}
+    }
+    @keyframes shadowBwd {
+      0%{opacity:0} 25%{opacity:1} 75%{opacity:.8} 100%{opacity:0}
     }
 
-    .app {
-      display: flex;
-      flex-direction: column;
-      height: 100dvh;
-    }
+    /* Arrows */
+    .arrow { position:absolute; top:50%; transform:translateY(-50%); z-index:10;
+      width:40px; height:40px; background:rgba(15,23,42,.85); border:1px solid #1e3a5f;
+      border-radius:50%; cursor:pointer; color:#94a3b8;
+      display:flex; align-items:center; justify-content:center;
+      transition:background .15s,color .15s,border-color .15s; backdrop-filter:blur(6px); }
+    .arrow:hover { background:#1e293b; color:#00c6b8; border-color:#00c6b8; }
+    .arrow[disabled] { opacity:.2; pointer-events:none; }
+    .arrow-l { left:6px; } .arrow-r { right:6px; }
+    .arrow svg { width:18px; height:18px; stroke:currentColor; fill:none;
+      stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
 
-    /* ── Header ── */
-    .header {
-      flex-shrink: 0;
-      background: #1e293b;
-      border-bottom: 1px solid #1e3a5f;
-      padding: 11px 20px;
-      display: flex;
-      align-items: center;
-    }
-    .header-logo { font-size: 1.1rem; font-weight: 700; color: #00c6b8; }
-    .header-logo span { color: #e2e8f0; font-weight: 300; }
-    .header-sub  { font-size: .7rem; color: #64748b; margin-top: 1px; }
-
-    /* ── Viewer ── */
-    .viewer {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-      padding: 12px 52px; /* room for arrows */
-    }
-
-    /* ── Book / spread ── */
-    .book {
-      position: relative;
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
-      perspective: 2000px;
-    }
-
-    /* Single cover/back cover */
-    .book.single .page-right { display: none; }
-    .book.single .spine      { display: none; }
-
-    /* Each half */
-    .page-left, .page-right {
-      display: block;
-      object-fit: contain;
-      /* width/height set by JS */
-    }
-
-    /* Drop shadow per half */
-    .page-left  { border-radius: 2px 0 0 2px; box-shadow: -4px 4px 20px rgba(0,0,0,.6), -1px 0 8px rgba(0,0,0,.4); }
-    .page-right { border-radius: 0 2px 2px 0; box-shadow:  4px 4px 20px rgba(0,0,0,.6),  1px 0 8px rgba(0,0,0,.4); }
-    .book.single .page-left {
-      border-radius: 2px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.5);
-    }
-
-    /* Spine */
-    .spine {
-      width: 5px;
-      background: linear-gradient(to right, #0a1628 0%, #1e3a5f 40%, #1e3a5f 60%, #0a1628 100%);
-      flex-shrink: 0;
-      align-self: stretch;
-    }
-
-    /* Flip animation — whole .book flips */
-    .book.go-next { animation: flipFwd .48s cubic-bezier(.4,0,.2,1) both; }
-    .book.go-prev { animation: flipBck .48s cubic-bezier(.4,0,.2,1) both; }
-
-    @keyframes flipFwd {
-      0%   { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
-      40%  { transform: perspective(2000px) rotateY(80deg);  opacity: 0; }
-      60%  { transform: perspective(2000px) rotateY(-80deg); opacity: 0; }
-      100% { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
-    }
-    @keyframes flipBck {
-      0%   { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
-      40%  { transform: perspective(2000px) rotateY(-80deg); opacity: 0; }
-      60%  { transform: perspective(2000px) rotateY(80deg);  opacity: 0; }
-      100% { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
-    }
-
-    /* ── Arrows ── */
-    .arrow {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 10;
-      width: 40px; height: 40px;
-      background: rgba(15,23,42,.85);
-      border: 1px solid #1e3a5f;
-      border-radius: 50%;
-      cursor: pointer;
-      color: #94a3b8;
-      display: flex; align-items: center; justify-content: center;
-      transition: background .15s, color .15s, border-color .15s;
-      backdrop-filter: blur(6px);
-    }
-    .arrow:hover      { background: #1e293b; color: #00c6b8; border-color: #00c6b8; }
-    .arrow[disabled]  { opacity: .2; pointer-events: none; }
-    .arrow.arrow-left  { left: 6px; }
-    .arrow.arrow-right { right: 6px; }
-    .arrow svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-
-    /* ── Bottom bar ── */
-    .bottom {
-      flex-shrink: 0;
-      background: #1e293b;
-      border-top: 1px solid #1e3a5f;
-      padding: 7px 16px 9px;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-
-    .ctrl-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .ctrl-btn {
-      background: none; border: none;
-      cursor: pointer; color: #64748b;
-      width: 30px; height: 30px;
-      border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      transition: color .15s, background .15s;
-    }
-    .ctrl-btn:hover         { color: #00c6b8; background: #0f172a; }
-    .ctrl-btn[disabled]     { opacity: .2; pointer-events: none; }
-    .ctrl-btn svg           { width: 19px; height: 19px; fill: currentColor; }
-
-    .counter {
-      font-size: .8rem; color: #94a3b8;
-      min-width: 72px; text-align: center;
-    }
-    .vline { width: 1px; height: 16px; background: #1e3a5f; margin: 0 2px; }
+    /* Bottom bar */
+    .bottom { flex-shrink:0; background:#1e293b; border-top:1px solid #1e3a5f;
+      padding:7px 16px 9px; display:flex; flex-direction:column; gap:7px; }
+    .ctrl-row { display:flex; align-items:center; justify-content:center; gap:8px; }
+    .cb { background:none; border:none; cursor:pointer; color:#64748b;
+      width:30px; height:30px; border-radius:5px;
+      display:flex; align-items:center; justify-content:center;
+      transition:color .15s,background .15s; }
+    .cb:hover { color:#00c6b8; background:#0f172a; }
+    .cb[disabled] { opacity:.2; pointer-events:none; }
+    .cb svg { width:19px; height:19px; fill:currentColor; }
+    .counter { font-size:.8rem; color:#94a3b8; min-width:72px; text-align:center; }
+    .vl { width:1px; height:16px; background:#1e3a5f; margin:0 2px; }
 
     /* Thumbnails */
-    .thumbs {
-      display: flex;
-      gap: 4px;
-      overflow-x: auto;
-      padding-bottom: 2px;
-      scrollbar-width: thin;
-      scrollbar-color: #334155 transparent;
-    }
-    .thumbs::-webkit-scrollbar { height: 3px; }
-    .thumbs::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .thumbs { display:flex; gap:4px; overflow-x:auto; padding-bottom:2px;
+      scrollbar-width:thin; scrollbar-color:#334155 transparent; }
+    .thumbs::-webkit-scrollbar { height:3px; }
+    .thumbs::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+    .thumb { flex-shrink:0; width:44px; height:44px; border-radius:3px; overflow:hidden;
+      cursor:pointer; border:2px solid transparent; opacity:.45;
+      transition:opacity .15s,border-color .15s; }
+    .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .thumb:hover { opacity:.8; border-color:#00c6b8; }
+    .thumb.active { opacity:1; border-color:#00c6b8; }
 
-    .thumb {
-      flex-shrink: 0;
-      width: 44px; height: 44px;
-      border-radius: 3px;
-      overflow: hidden;
-      cursor: pointer;
-      border: 2px solid transparent;
-      opacity: .45;
-      transition: opacity .15s, border-color .15s;
-    }
-    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .thumb:hover  { opacity: .8;  border-color: #00c6b8; }
-    .thumb.active { opacity: 1;   border-color: #00c6b8; }
-
-    @media (max-width: 480px) {
-      .viewer { padding: 8px 44px; }
-      .thumb  { width: 36px; height: 36px; }
-      .arrow  { width: 34px; height: 34px; }
-      .arrow.arrow-left  { left: 2px; }
-      .arrow.arrow-right { right: 2px; }
+    @media(max-width:480px){
+      .viewer{padding:8px 44px;}
+      .thumb{width:36px;height:36px;}
+      .arrow{width:34px;height:34px;}
+      .arrow-l{left:2px;}.arrow-r{right:2px;}
     }
   </style>
 </head>
@@ -195,104 +123,130 @@
 <div class="app">
 
   <header class="header">
-    <div>
-      <div class="header-logo">ePayco <span>Datáfono</span></div>
-      <div class="header-sub">Guía de uso del datáfono</div>
-    </div>
+    <div class="hl">ePayco <span>Datáfono</span></div>
+    <div class="hs">Guía de uso del datáfono</div>
   </header>
 
   <div class="viewer" id="viewer">
-    <div class="book single" id="book">
-      <img class="page-left"  id="imgLeft"  src="" alt="" draggable="false" />
-      <div class="spine"      id="spine"></div>
-      <img class="page-right" id="imgRight" src="" alt="" draggable="false" />
+    <div id="stage">
+
+      <!-- Resting spread (always visible, hidden during flip by anim overlay) -->
+      <div id="rest" class="single">
+        <img id="pgL" src="" alt="" draggable="false" />
+        <div class="spine" id="spine" style="display:none"></div>
+        <img id="pgR" src="" alt="" draggable="false" style="display:none" />
+      </div>
+
+      <!-- Animation overlay (hidden when idle) -->
+      <div id="anim" style="display:none">
+        <!-- "Destination" layer underneath the turning page -->
+        <img id="destUnder" style="position:absolute;top:0;bottom:0;display:block;object-fit:contain;" />
+        <!-- Shadow on the static page -->
+        <div id="pgShadow"></div>
+        <!-- Turning card -->
+        <div id="turnCard">
+          <div class="face" id="turnFront"><img id="fImg" src="" alt="" /></div>
+          <div class="face" id="turnBack"><img id="bImg" src="" alt="" /></div>
+        </div>
+      </div>
+
     </div>
 
-    <button class="arrow arrow-left"  id="arrowL" disabled>
+    <button class="arrow arrow-l" id="arrowL" disabled>
       <svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
-    <button class="arrow arrow-right" id="arrowR">
+    <button class="arrow arrow-r" id="arrowR">
       <svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
     </button>
   </div>
 
   <div class="bottom">
     <div class="ctrl-row">
-      <button class="ctrl-btn" id="btnFirst" disabled title="Primera página">
+      <button class="cb" id="btnFirst" disabled title="Primera página">
         <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
       </button>
-      <button class="ctrl-btn" id="btnPrev"  disabled title="Anterior">
+      <button class="cb" id="btnPrev" disabled title="Anterior">
         <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
       </button>
       <span class="counter" id="counter">— / —</span>
-      <button class="ctrl-btn" id="btnNext"  title="Siguiente">
+      <button class="cb" id="btnNext" title="Siguiente">
         <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
       </button>
-      <button class="ctrl-btn" id="btnLast"  title="Última página">
+      <button class="cb" id="btnLast" title="Última página">
         <svg viewBox="0 0 24 24"><path d="M18 6h-2v12h2zm-3.5 6L6 6v12z"/></svg>
       </button>
-      <div class="vline"></div>
-      <button class="ctrl-btn" id="btnFs" title="Pantalla completa">
+      <div class="vl"></div>
+      <button class="cb" id="btnFs" title="Pantalla completa">
         <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zm-3-12v2h3v3h2V5h-5z"/></svg>
       </button>
     </div>
     <div class="thumbs" id="thumbs"></div>
   </div>
-
 </div>
+
 <script>
-const TOTAL = 18;
-const SRCS  = Array.from({length: TOTAL}, (_, i) =>
-  `pages/page-${String(i + 1).padStart(2, '0')}.jpg`
-);
+/* ── Data ── */
+const TOTAL   = 18;
+const SPINE_W = 5;
+const DUR     = 650; // ms
+
+const SRCS = Array.from({length: TOTAL}, (_, i) =>
+  `pages/page-${String(i+1).padStart(2,'0')}.jpg`);
 
 /*
-  Spread model (18 pages, 0-indexed):
-    spread 0  → [0]        (cover, single)
-    spread 1  → [1, 2]
-    spread 2  → [3, 4]
-    ...
-    spread 8  → [15, 16]
-    spread 9  → [17]       (back, single)
+  Spreads (18 pages):
+    0 → [0]          single (cover)
+    1 → [1,2]
+    2 → [3,4]  …
+    8 → [15,16]
+    9 → [17]         single (back)
 */
 function buildSpreads(n) {
-  const list = [[0]];                           // cover
-  for (let i = 1; i + 1 < n; i += 2)
-    list.push([i, i + 1]);                      // double spreads
-  if ((n - 1) % 2 === 0) list.push([n - 1]);   // back cover (only when even total)
-  // For odd totals the last double spread absorbs it — already handled above
-  return list;
+  const s = [[0]];
+  for (let i = 1; i + 1 < n; i += 2) s.push([i, i+1]);
+  if ((n - 1) % 2 === 0) s.push([n-1]);
+  return s;
 }
-
 const SPREADS = buildSpreads(TOTAL);
-let cur   = 0;   // spread index
-let busy  = false;
 
-const book     = document.getElementById('book');
-const imgLeft  = document.getElementById('imgLeft');
-const imgRight = document.getElementById('imgRight');
-const counter  = document.getElementById('counter');
-const arrowL   = document.getElementById('arrowL');
-const arrowR   = document.getElementById('arrowR');
-const btnFirst = document.getElementById('btnFirst');
-const btnPrev  = document.getElementById('btnPrev');
-const btnNext  = document.getElementById('btnNext');
-const btnLast  = document.getElementById('btnLast');
-const btnFs    = document.getElementById('btnFs');
-const viewer   = document.getElementById('viewer');
-const thumbsEl = document.getElementById('thumbs');
+let cur   = 0;
+let busy  = false;
+let psz   = 0; // page size in px (square)
+
+/* ── Elements ── */
+const viewer    = document.getElementById('viewer');
+const stage     = document.getElementById('stage');
+const rest      = document.getElementById('rest');
+const pgL       = document.getElementById('pgL');
+const pgR       = document.getElementById('pgR');
+const spineEl   = document.getElementById('spine');
+const animEl    = document.getElementById('anim');
+const destUnder = document.getElementById('destUnder');
+const pgShadow  = document.getElementById('pgShadow');
+const turnCard  = document.getElementById('turnCard');
+const fImg      = document.getElementById('fImg');
+const bImg      = document.getElementById('bImg');
+const counter   = document.getElementById('counter');
+const arrowL    = document.getElementById('arrowL');
+const arrowR    = document.getElementById('arrowR');
+const btnFirst  = document.getElementById('btnFirst');
+const btnPrev   = document.getElementById('btnPrev');
+const btnNext   = document.getElementById('btnNext');
+const btnLast   = document.getElementById('btnLast');
+const btnFs     = document.getElementById('btnFs');
+const thumbsEl  = document.getElementById('thumbs');
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
   const d = document.createElement('div');
   d.className = 'thumb';
-  d.title     = `Página ${i + 1}`;
-  const img   = document.createElement('img');
+  d.title = `Página ${i+1}`;
+  const img = document.createElement('img');
   img.src = src; img.alt = ''; img.loading = 'lazy';
   d.appendChild(img);
   d.addEventListener('click', () => {
     const si = SPREADS.findIndex(s => s.includes(i));
-    goTo(si);
+    if (si !== -1) goTo(si);
   });
   thumbsEl.appendChild(d);
 });
@@ -302,115 +256,212 @@ const thumbEls = thumbsEl.querySelectorAll('.thumb');
 function resize() {
   const vw = viewer.clientWidth;
   const vh = viewer.clientHeight;
-  const isSingle = SPREADS[cur].length === 1;
+  const pages = SPREADS[cur];
+  const double = pages.length === 2;
 
-  if (isSingle) {
-    const sz = Math.floor(Math.min(vw - 8, vh - 8, 800));
-    imgLeft.style.width  = sz + 'px';
-    imgLeft.style.height = sz + 'px';
+  if (double) {
+    psz = Math.floor(Math.min(vh - 8, (vw - SPINE_W) / 2, 700));
   } else {
-    // Double: each page gets half width minus spine (5px)
-    const maxH = vh - 8;
-    const maxW = Math.floor((vw - 5) / 2);
-    const sz   = Math.min(maxH, maxW, 680);
-    imgLeft.style.width   = sz + 'px';
-    imgLeft.style.height  = sz + 'px';
-    imgRight.style.width  = sz + 'px';
-    imgRight.style.height = sz + 'px';
+    psz = Math.floor(Math.min(vh - 8, vw - 8, 760));
   }
+
+  // Stage size
+  const sw = double ? psz * 2 + SPINE_W : psz;
+  stage.style.width  = sw + 'px';
+  stage.style.height = psz + 'px';
+
+  // Images
+  pgL.style.width  = pgL.style.height  = psz + 'px';
+  pgR.style.width  = pgR.style.height  = psz + 'px';
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); renderRest(cur); });
 
-/* ── Render a spread ── */
-function render(spreadIdx) {
-  const pages = SPREADS[spreadIdx];
-  const single = pages.length === 1;
+/* ── Render resting state ── */
+function renderRest(si) {
+  const pages  = SPREADS[si];
+  const double = pages.length === 2;
 
-  book.classList.toggle('single', single);
+  rest.classList.toggle('single', !double);
+  spineEl.style.display  = double ? '' : 'none';
+  pgR.style.display      = double ? '' : 'none';
 
-  imgLeft.src = SRCS[pages[0]];
-  imgLeft.alt = `Página ${pages[0] + 1}`;
-
-  if (!single) {
-    imgRight.src = SRCS[pages[1]];
-    imgRight.alt = `Página ${pages[1] + 1}`;
+  pgL.src = SRCS[pages[0]];
+  pgL.alt = `Página ${pages[0]+1}`;
+  if (double) {
+    pgR.src = SRCS[pages[1]];
+    pgR.alt = `Página ${pages[1]+1}`;
   }
 
-  // Counter label
-  if (single) {
-    counter.textContent = `${pages[0] + 1} / ${TOTAL}`;
-  } else {
-    counter.textContent = `${pages[0] + 1}–${pages[1] + 1} / ${TOTAL}`;
-  }
+  // Counter
+  counter.textContent = double
+    ? `${pages[0]+1}–${pages[1]+1} / ${TOTAL}`
+    : `${pages[0]+1} / ${TOTAL}`;
 
   // Buttons
-  const first = spreadIdx <= 0;
-  const last  = spreadIdx >= SPREADS.length - 1;
-  arrowL.disabled  = btnFirst.disabled = btnPrev.disabled = first;
-  arrowR.disabled  = btnLast.disabled  = btnNext.disabled = last;
+  arrowL.disabled = btnFirst.disabled = btnPrev.disabled = si <= 0;
+  arrowR.disabled = btnLast.disabled  = btnNext.disabled = si >= SPREADS.length - 1;
 
   // Thumbs
   thumbEls.forEach((t, i) => t.classList.toggle('active', pages.includes(i)));
-  const mid = single ? pages[0] : pages[0];
-  thumbEls[mid]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
-
-  resize();
+  thumbEls[pages[0]]?.scrollIntoView({inline:'center', behavior:'smooth', block:'nearest'});
 }
 
-/* ── Navigate ── */
-function goTo(to, dir) {
+/* ── Page-turn animation ── */
+function goTo(to) {
   if (busy || to === cur || to < 0 || to >= SPREADS.length) return;
   busy = true;
 
-  const cls = (dir ?? (to > cur ? 'next' : 'prev')) === 'next' ? 'go-next' : 'go-prev';
-  book.classList.add(cls);
+  const fwd   = to > cur;
+  const fromS = SPREADS[cur];
+  const toS   = SPREADS[to];
 
+  /*
+    Forward: right page (or single cover) flips LEFT
+      - turn origin: left edge of right half
+      - front: fromS right page
+      - back:  toS left page
+      - dest (under turning page): toS right page, sitting on right half
+      - static (doesn't move): fromS left page (if double), else nothing
+
+    Backward: left page (or single back) flips RIGHT
+      - turn origin: right edge of left half
+      - front: fromS left page
+      - back:  toS right page
+      - dest (under turning page): toS left page, sitting on left half
+      - static (doesn't move): fromS right page (if double), else nothing
+  */
+
+  resize(); // ensure psz is current
+
+  const sw = SPREADS[cur].length === 2 ? psz * 2 + SPINE_W : psz;
+  // Recompute for the destination too
+  const destDouble = toS.length === 2;
+  const destSW     = destDouble ? psz * 2 + SPINE_W : psz;
+
+  // Show rest with CURRENT spread as background
+  renderRest(cur);
+  animEl.style.display = '';
+
+  if (fwd) {
+    const turningPage = fromS.length === 2 ? fromS[1] : fromS[0];
+    const backPage    = toS[0];
+    const destRight   = toS.length === 2 ? toS[1] : null;
+
+    // front of turn = turning page (right of current spread, or single cover)
+    fImg.src = SRCS[turningPage];
+    // back of turn = left page of next spread
+    bImg.src = SRCS[backPage];
+
+    // destUnder: right side of destination, shown UNDER the turn card
+    if (destRight !== null) {
+      destUnder.style.cssText =
+        `left:${psz + SPINE_W}px; top:0; width:${psz}px; height:${psz}px; display:block;`;
+      destUnder.src = SRCS[destRight];
+    } else {
+      // destination is single — no right page under turn
+      destUnder.style.display = 'none';
+    }
+
+    // turnCard: cover the right half (or full single for cover)
+    const tcLeft = fromS.length === 2 ? psz + SPINE_W : 0;
+    turnCard.style.cssText =
+      `left:${tcLeft}px; top:0; width:${psz}px; height:${psz}px;
+       transform-origin:left center;`;
+
+    // shadow falls on the left static page during the flip
+    if (fromS.length === 2) {
+      pgShadow.style.cssText =
+        `left:0; top:0; width:${psz}px; height:${psz}px;
+         background:linear-gradient(to left,rgba(0,0,0,.45),transparent);
+         animation:shadowFwd ${DUR}ms ease forwards;`;
+    } else {
+      pgShadow.style.display = 'none';
+    }
+
+    // Animate
+    turnCard.style.animation = `turnFwd ${DUR}ms cubic-bezier(.4,0,.2,1) forwards`;
+
+  } else {
+    // Backward
+    const turningPage = fromS.length === 2 ? fromS[0] : fromS[0];
+    const backPage    = toS.length === 2 ? toS[1] : toS[0];
+    const destLeft    = toS[0];
+
+    fImg.src = SRCS[turningPage];
+    bImg.src = SRCS[backPage];
+
+    // destUnder: left side of prev spread, shown under the turn card
+    destUnder.style.cssText =
+      `left:0; top:0; width:${psz}px; height:${psz}px; display:block;`;
+    destUnder.src = SRCS[destLeft];
+
+    // turnCard: cover the left half (or full single for back cover)
+    turnCard.style.cssText =
+      `left:0; top:0; width:${psz}px; height:${psz}px;
+       transform-origin:right center;`;
+
+    // shadow on right static page
+    if (fromS.length === 2) {
+      pgShadow.style.cssText =
+        `left:${psz + SPINE_W}px; top:0; width:${psz}px; height:${psz}px;
+         background:linear-gradient(to right,rgba(0,0,0,.45),transparent);
+         animation:shadowBwd ${DUR}ms ease forwards;`;
+    } else {
+      pgShadow.style.display = 'none';
+    }
+
+    turnCard.style.animation = `turnBwd ${DUR}ms cubic-bezier(.4,0,.2,1) forwards`;
+  }
+
+  // Snap to new spread at midpoint (when page is edge-on and invisible)
   setTimeout(() => {
     cur = to;
-    render(cur);
-    book.classList.remove(cls);       // remove early so re-add doesn't clash
-    void book.offsetWidth;            // force reflow
-    book.classList.add(cls);          // already mid-animation — noop; let animationend clean up
-  }, 240);
+    resize();
+    renderRest(cur);
+  }, DUR / 2);
 
-  book.addEventListener('animationend', () => {
-    book.classList.remove('go-next', 'go-prev');
+  // Clean up after animation
+  setTimeout(() => {
+    animEl.style.display = 'none';
+    // clear animation to allow re-trigger
+    turnCard.style.animation = 'none';
+    pgShadow.style.animation = 'none';
+    pgShadow.style.display   = '';
     busy = false;
-  }, {once: true});
+  }, DUR + 30);
 }
 
 /* ── Controls ── */
-arrowL.addEventListener  ('click', () => goTo(cur - 1, 'prev'));
-arrowR.addEventListener  ('click', () => goTo(cur + 1, 'next'));
-btnFirst.addEventListener('click', () => goTo(0, 'prev'));
-btnPrev.addEventListener ('click', () => goTo(cur - 1, 'prev'));
-btnNext.addEventListener ('click', () => goTo(cur + 1, 'next'));
-btnLast.addEventListener ('click', () => goTo(SPREADS.length - 1, 'next'));
+arrowL.addEventListener  ('click', () => goTo(cur - 1));
+arrowR.addEventListener  ('click', () => goTo(cur + 1));
+btnFirst.addEventListener('click', () => goTo(0));
+btnPrev.addEventListener ('click', () => goTo(cur - 1));
+btnNext.addEventListener ('click', () => goTo(cur + 1));
+btnLast.addEventListener ('click', () => goTo(SPREADS.length - 1));
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(cur + 1, 'next');
-  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(cur - 1, 'prev');
-  if (e.key === 'Home') goTo(0, 'prev');
-  if (e.key === 'End')  goTo(SPREADS.length - 1, 'next');
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(cur + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(cur - 1);
+  if (e.key === 'Home') goTo(0);
+  if (e.key === 'End')  goTo(SPREADS.length - 1);
 });
 
-/* Touch swipe */
 let tx = 0;
-viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive: true});
+viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive:true});
 viewer.addEventListener('touchend',   e => {
   const dx = e.changedTouches[0].clientX - tx;
-  if (Math.abs(dx) > 40) dx < 0 ? goTo(cur + 1, 'next') : goTo(cur - 1, 'prev');
-}, {passive: true});
+  if (Math.abs(dx) > 40) dx < 0 ? goTo(cur + 1) : goTo(cur - 1);
+}, {passive:true});
 
-/* Fullscreen */
 btnFs.addEventListener('click', () => {
-  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
   else document.exitFullscreen();
 });
-document.addEventListener('fullscreenchange', () => setTimeout(resize, 100));
+document.addEventListener('fullscreenchange', () => setTimeout(() => { resize(); renderRest(cur); }, 100));
 
-/* Initial render */
-render(0);
+/* ── Init ── */
+resize();
+renderRest(0);
 </script>
 </body>
 </html>
