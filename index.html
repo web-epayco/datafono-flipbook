@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guía de uso del datáfono — ePayco</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1a1a2e;
+      --surface:   #16213e;
+      --accent:    #00c6b8;
+      --accent2:   #0f3460;
+      --text:      #e0e0e0;
+      --shadow:    rgba(0,0,0,.6);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent2);
+    }
+    header .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+    header .logo span { color: var(--text); font-weight: 300; }
+    header .subtitle {
+      font-size: .85rem;
+      opacity: .7;
+      margin-top: 2px;
+    }
+
+    /* ── Stage ── */
+    #stage {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px 16px;
+      gap: 24px;
+    }
+
+    /* ── Flipbook wrapper ── */
+    #flipbook-wrap {
+      position: relative;
+      /* size is set by JS */
+    }
+
+    /* Loading overlay */
+    #loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border-radius: 4px;
+      z-index: 10;
+      gap: 14px;
+      font-size: .9rem;
+      opacity: .9;
+    }
+    #loading .spinner {
+      width: 42px; height: 42px;
+      border: 4px solid var(--accent2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Controls ── */
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--accent2);
+      border-radius: 40px;
+      padding: 8px 20px;
+      user-select: none;
+    }
+
+    .btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 50%;
+      transition: background .2s, transform .15s;
+      font-size: 0;
+    }
+    .btn:hover  { background: var(--accent2); transform: scale(1.1); }
+    .btn:active { transform: scale(.95); }
+    .btn svg { width: 22px; height: 22px; fill: currentColor; }
+    .btn:disabled { opacity: .3; cursor: default; }
+    .btn:disabled:hover { background: none; transform: none; }
+
+    #page-info {
+      font-size: .85rem;
+      min-width: 90px;
+      text-align: center;
+      color: var(--text);
+      opacity: .75;
+    }
+
+    .sep {
+      width: 1px; height: 20px;
+      background: var(--accent2);
+      margin: 0 4px;
+    }
+
+    /* Zoom buttons */
+    .zoom-btn svg { width: 18px; height: 18px; }
+
+    /* ── Thumbnail bar ── */
+    #thumbs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      max-width: min(900px, 95vw);
+      padding: 6px 4px 10px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent2) transparent;
+    }
+    #thumbs::-webkit-scrollbar { height: 4px; }
+    #thumbs::-webkit-scrollbar-thumb { background: var(--accent2); border-radius: 2px; }
+
+    .thumb {
+      flex-shrink: 0;
+      width: 52px; height: 52px;
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color .2s, opacity .2s;
+      opacity: .55;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb:hover  { opacity: .85; border-color: var(--accent); }
+    .thumb.active { opacity: 1;   border-color: var(--accent); }
+
+    /* ── Hints ── */
+    .hint {
+      font-size: .75rem;
+      opacity: .4;
+      text-align: center;
+      padding-bottom: 16px;
+    }
+
+    /* ── Mobile tweaks ── */
+    @media (max-width: 600px) {
+      header { padding: 12px 16px; }
+      .thumb { width: 40px; height: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">ePayco <span>Datáfono</span></div>
+    <div class="subtitle">Guía de uso del datáfono</div>
+  </div>
+</header>
+
+<main id="stage">
+
+  <div id="flipbook-wrap">
+    <div id="loading">
+      <div class="spinner"></div>
+      Cargando guía…
+    </div>
+    <!-- page images injected by JS -->
+    <div id="flipbook"></div>
+  </div>
+
+  <div id="controls">
+    <!-- First -->
+    <button class="btn" id="btn-first" title="Primera página">
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <!-- Prev -->
+    <button class="btn" id="btn-prev" title="Página anterior">
+      <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+
+    <span id="page-info">1 / 18</span>
+
+    <!-- Next -->
+    <button class="btn" id="btn-next" title="Página siguiente">
+      <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </button>
+    <!-- Last -->
+    <button class="btn" id="btn-last" title="Última página">
+      <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zm-8.5 6L16 6v12z"/></svg>
+    </button>
+
+    <div class="sep"></div>
+
+    <!-- Zoom out -->
+    <button class="btn zoom-btn" id="btn-zoom-out" title="Reducir">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7z"/></svg>
+    </button>
+    <!-- Zoom in -->
+    <button class="btn zoom-btn" id="btn-zoom-in" title="Ampliar">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-5H9v2H7v1h2v2h1v-2h2V10h-2V8z"/></svg>
+    </button>
+  </div>
+
+  <!-- Thumbnails -->
+  <div id="thumbs"></div>
+
+  <p class="hint">Haz clic en los bordes de la página o usa las flechas para navegar · Arrastra para voltear</p>
+
+</main>
+
+<!-- StPageFlip -->
+<script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.js"></script>
+
+<script>
+  const TOTAL = 18;
+  const PAGES = Array.from({ length: TOTAL }, (_, i) => {
+    const n = String(i + 1).padStart(2, '0');
+    return `pages/page-${n}.png`;
+  });
+
+  /* ── Responsive sizing ── */
+  function calcSize() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Available area after header (~70px) + controls (~60px) + thumbs (~70px)
+    const maxH = vh - 70 - 60 - 90 - 64; // 64px extra padding
+    const maxW = Math.min(vw * 0.92, 900);
+    // Pages are square; double-spread = 2 pages side by side
+    // Single page width = half of available width (min 280)
+    const pageW = Math.max(280, Math.min(Math.floor(maxW / 2), Math.floor(maxH)));
+    const pageH = pageW; // square pages
+    return { pageW, pageH };
+  }
+
+  let { pageW, pageH } = calcSize();
+
+  /* ── Build flipbook container ── */
+  const wrap = document.getElementById('flipbook-wrap');
+  const fb   = document.getElementById('flipbook');
+
+  function applySize() {
+    ({ pageW, pageH } = calcSize());
+    wrap.style.width  = (pageW * 2) + 'px';
+    wrap.style.height = pageH + 'px';
+  }
+  applySize();
+
+  /* ── Inject page images ── */
+  PAGES.forEach(src => {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    fb.appendChild(img);
+  });
+
+  /* ── Thumbnails ── */
+  const thumbsEl = document.getElementById('thumbs');
+  PAGES.forEach((src, i) => {
+    const d   = document.createElement('div');
+    d.className = 'thumb' + (i === 0 ? ' active' : '');
+    d.title = `Página ${i + 1}`;
+    const img = document.createElement('img');
+    img.src = src; img.alt = '';
+    d.appendChild(img);
+    d.addEventListener('click', () => pageFlip.flip(i));
+    thumbsEl.appendChild(d);
+  });
+
+  /* ── Init StPageFlip ── */
+  const pageFlip = new St.PageFlip(fb, {
+    width:  pageW,
+    height: pageH,
+    size:   'fixed',
+    minWidth:  280,
+    minHeight: 280,
+    maxWidth:  600,
+    maxHeight: 600,
+    showCover:    true,
+    mobileScrollSupport: false,
+    usePortrait:  false,
+    autoSize:     false,
+    drawShadow:   true,
+    flippingTime: 700,
+    startPage: 0,
+  });
+
+  pageFlip.loadFromImages(PAGES);
+
+  /* ── UI helpers ── */
+  const infoEl     = document.getElementById('page-info');
+  const btnFirst   = document.getElementById('btn-first');
+  const btnPrev    = document.getElementById('btn-prev');
+  const btnNext    = document.getElementById('btn-next');
+  const btnLast    = document.getElementById('btn-last');
+  const btnZoomIn  = document.getElementById('btn-zoom-in');
+  const btnZoomOut = document.getElementById('btn-zoom-out');
+  const thumbEls   = thumbsEl.querySelectorAll('.thumb');
+
+  let zoomLevel = 1;
+  const ZOOM_STEP = 0.15, ZOOM_MIN = 0.6, ZOOM_MAX = 2;
+
+  function updateInfo() {
+    const p = pageFlip.getCurrentPageIndex() + 1;
+    infoEl.textContent = `${p} / ${TOTAL}`;
+    btnFirst.disabled = btnPrev.disabled = (p <= 1);
+    btnLast.disabled  = btnNext.disabled = (p >= TOTAL);
+    thumbEls.forEach((t, i) => t.classList.toggle('active', i === p - 1));
+    // scroll active thumb into view
+    thumbEls[p - 1]?.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
+  }
+
+  function applyZoom() {
+    wrap.style.transform       = `scale(${zoomLevel})`;
+    wrap.style.transformOrigin = 'top center';
+    btnZoomIn.disabled  = zoomLevel >= ZOOM_MAX;
+    btnZoomOut.disabled = zoomLevel <= ZOOM_MIN;
+  }
+
+  /* ── Events ── */
+  pageFlip.on('flip',   updateInfo);
+  pageFlip.on('changeState', updateInfo);
+
+  pageFlip.on('init', () => {
+    document.getElementById('loading').style.display = 'none';
+    updateInfo();
+  });
+
+  btnFirst.addEventListener('click', () => pageFlip.flip(0));
+  btnLast.addEventListener ('click', () => pageFlip.flip(TOTAL - 1));
+  btnPrev.addEventListener ('click', () => pageFlip.flipPrev());
+  btnNext.addEventListener ('click', () => pageFlip.flipNext());
+
+  btnZoomIn.addEventListener ('click', () => { zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2)); applyZoom(); });
+  btnZoomOut.addEventListener('click', () => { zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2)); applyZoom(); });
+
+  /* Keyboard navigation */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  pageFlip.flipNext();
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    pageFlip.flipPrev();
+    if (e.key === 'Home') pageFlip.flip(0);
+    if (e.key === 'End')  pageFlip.flip(TOTAL - 1);
+    if (e.key === '+' || e.key === '=') btnZoomIn.click();
+    if (e.key === '-')                  btnZoomOut.click();
+  });
+
+  /* Resize */
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      applySize();
+      pageFlip.update();
+    }, 200);
+  });
+</script>
+
+</body>
+</html>
