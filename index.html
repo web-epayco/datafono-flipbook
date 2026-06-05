@@ -7,115 +7,85 @@
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; background: #0f172a; color: #e2e8f0;
-      font-family: system-ui, sans-serif; overflow: hidden; }
+      font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
 
     .app { display: flex; flex-direction: column; height: 100dvh; }
 
-    /* Header */
-    .header { flex-shrink:0; background:#1e293b; border-bottom:1px solid #1e3a5f;
-      padding:11px 20px; }
-    .hl { font-size:1.1rem; font-weight:700; color:#00c6b8; }
-    .hl span { color:#e2e8f0; font-weight:300; }
-    .hs { font-size:.7rem; color:#64748b; margin-top:1px; }
+    /* ── Header ── */
+    .header { flex-shrink: 0; background: #1e293b; border-bottom: 1px solid #1e3a5f;
+      padding: 11px 20px; }
+    .hl { font-size: 1.1rem; font-weight: 700; color: #00c6b8; }
+    .hl span { color: #e2e8f0; font-weight: 300; }
+    .hs { font-size: .7rem; color: #64748b; margin-top: 1px; }
 
-    /* Viewer */
-    .viewer { flex:1; display:flex; align-items:center; justify-content:center;
-      overflow:hidden; padding:12px 54px; position:relative; }
+    /* ── Viewer ── */
+    .viewer { flex: 1; display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden; padding: 12px 52px; }
 
-    /* Stage: sized by JS */
-    #stage { position:relative; }
+    /* Book wrap — sized by JS */
+    #bookWrap { position: relative; display: flex; align-items: center;
+      justify-content: center; }
 
-    /* Resting layer: two pages + spine */
-    #rest { display:flex; align-items:stretch; }
-    #rest img { display:block; object-fit:contain; }
-    .spine { width:5px; flex-shrink:0;
-      background:linear-gradient(to right,#091523 0%,#1e3a5f 45%,#1e3a5f 55%,#091523 100%); }
-    #pgL { border-radius:3px 0 0 3px;
-      box-shadow:-4px 2px 18px rgba(0,0,0,.65); }
-    #pgR { border-radius:0 3px 3px 0;
-      box-shadow: 4px 2px 18px rgba(0,0,0,.65); }
-    #rest.single #pgL { border-radius:3px;
-      box-shadow:0 6px 36px rgba(0,0,0,.75); }
+    /* StPageFlip injects a canvas here — keep container clean */
+    #flipbook { display: block; }
 
-    /* Animation overlay: absolute on top of #rest */
-    #anim { position:absolute; inset:0; pointer-events:none; }
+    /* StPageFlip canvas (dark theme background behind pages) */
+    #flipbook canvas { display: block; }
 
-    /* Shadow cast on the static page */
-    #pgShadow { position:absolute; top:0; bottom:0; pointer-events:none; z-index:4; }
+    /* Loading overlay */
+    #loading { position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; background: #0f172a;
+      gap: 14px; font-size: .9rem; color: #94a3b8; z-index: 20; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #1e3a5f;
+      border-top-color: #00c6b8; border-radius: 50%;
+      animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* The turning card */
-    #turnCard { position:absolute; transform-style:preserve-3d; z-index:3; }
-    #turnCard .face { position:absolute; inset:0;
-      backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden; }
-    #turnCard .face img { width:100%; height:100%; object-fit:contain; display:block; }
-    #turnFront { border-radius:0 3px 3px 0; }
-    #turnBack  { border-radius:3px 0 0 3px; transform:rotateY(180deg); }
+    /* ── Arrows ── */
+    .arrow { position: absolute; top: 50%; transform: translateY(-50%);
+      z-index: 10; width: 40px; height: 40px;
+      background: rgba(15,23,42,.85); border: 1px solid #1e3a5f;
+      border-radius: 50%; cursor: pointer; color: #94a3b8;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s, border-color .15s;
+      backdrop-filter: blur(6px); }
+    .arrow:hover { background: #1e293b; color: #00c6b8; border-color: #00c6b8; }
+    .arrow[disabled] { opacity: .2; pointer-events: none; }
+    .arrow-l { left: 6px; } .arrow-r { right: 6px; }
+    .arrow svg { width: 18px; height: 18px; stroke: currentColor; fill: none;
+      stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 
-    /* Lift gradient on front edge while turning */
-    #turnFront::after { content:''; position:absolute; inset:0; pointer-events:none;
-      background:linear-gradient(to left, rgba(0,0,0,0) 60%, rgba(0,0,0,.25) 100%); }
-    /* Shadow bevel on back when revealed */
-    #turnBack::after  { content:''; position:absolute; inset:0; pointer-events:none;
-      background:linear-gradient(to right, rgba(0,0,0,.22) 0%, rgba(0,0,0,0) 35%); }
-
-    @keyframes turnFwd {
-      from { transform:perspective(1800px) rotateY(0deg);   }
-      to   { transform:perspective(1800px) rotateY(-180deg);}
-    }
-    @keyframes turnBwd {
-      from { transform:perspective(1800px) rotateY(0deg);  }
-      to   { transform:perspective(1800px) rotateY(180deg);}
-    }
-    @keyframes shadowFwd {
-      0%{opacity:0} 25%{opacity:1} 75%{opacity:.8} 100%{opacity:0}
-    }
-    @keyframes shadowBwd {
-      0%{opacity:0} 25%{opacity:1} 75%{opacity:.8} 100%{opacity:0}
-    }
-
-    /* Arrows */
-    .arrow { position:absolute; top:50%; transform:translateY(-50%); z-index:10;
-      width:40px; height:40px; background:rgba(15,23,42,.85); border:1px solid #1e3a5f;
-      border-radius:50%; cursor:pointer; color:#94a3b8;
-      display:flex; align-items:center; justify-content:center;
-      transition:background .15s,color .15s,border-color .15s; backdrop-filter:blur(6px); }
-    .arrow:hover { background:#1e293b; color:#00c6b8; border-color:#00c6b8; }
-    .arrow[disabled] { opacity:.2; pointer-events:none; }
-    .arrow-l { left:6px; } .arrow-r { right:6px; }
-    .arrow svg { width:18px; height:18px; stroke:currentColor; fill:none;
-      stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
-
-    /* Bottom bar */
-    .bottom { flex-shrink:0; background:#1e293b; border-top:1px solid #1e3a5f;
-      padding:7px 16px 9px; display:flex; flex-direction:column; gap:7px; }
-    .ctrl-row { display:flex; align-items:center; justify-content:center; gap:8px; }
-    .cb { background:none; border:none; cursor:pointer; color:#64748b;
-      width:30px; height:30px; border-radius:5px;
-      display:flex; align-items:center; justify-content:center;
-      transition:color .15s,background .15s; }
-    .cb:hover { color:#00c6b8; background:#0f172a; }
-    .cb[disabled] { opacity:.2; pointer-events:none; }
-    .cb svg { width:19px; height:19px; fill:currentColor; }
-    .counter { font-size:.8rem; color:#94a3b8; min-width:72px; text-align:center; }
-    .vl { width:1px; height:16px; background:#1e3a5f; margin:0 2px; }
+    /* ── Bottom ── */
+    .bottom { flex-shrink: 0; background: #1e293b; border-top: 1px solid #1e3a5f;
+      padding: 7px 16px 9px; display: flex; flex-direction: column; gap: 7px; }
+    .ctrl-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .cb { background: none; border: none; cursor: pointer; color: #64748b;
+      width: 30px; height: 30px; border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s; }
+    .cb:hover { color: #00c6b8; background: #0f172a; }
+    .cb[disabled] { opacity: .2; pointer-events: none; }
+    .cb svg { width: 19px; height: 19px; fill: currentColor; }
+    .counter { font-size: .8rem; color: #94a3b8; min-width: 72px; text-align: center; }
+    .vl { width: 1px; height: 16px; background: #1e3a5f; margin: 0 2px; }
 
     /* Thumbnails */
-    .thumbs { display:flex; gap:4px; overflow-x:auto; padding-bottom:2px;
-      scrollbar-width:thin; scrollbar-color:#334155 transparent; }
-    .thumbs::-webkit-scrollbar { height:3px; }
-    .thumbs::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
-    .thumb { flex-shrink:0; width:44px; height:44px; border-radius:3px; overflow:hidden;
-      cursor:pointer; border:2px solid transparent; opacity:.45;
-      transition:opacity .15s,border-color .15s; }
-    .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-    .thumb:hover { opacity:.8; border-color:#00c6b8; }
-    .thumb.active { opacity:1; border-color:#00c6b8; }
+    .thumbs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;
+      scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+    .thumbs::-webkit-scrollbar { height: 3px; }
+    .thumbs::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .thumb { flex-shrink: 0; width: 44px; height: 44px; border-radius: 3px;
+      overflow: hidden; cursor: pointer; border: 2px solid transparent; opacity: .45;
+      transition: opacity .15s, border-color .15s; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb:hover { opacity: .8; border-color: #00c6b8; }
+    .thumb.active { opacity: 1; border-color: #00c6b8; }
 
-    @media(max-width:480px){
-      .viewer{padding:8px 44px;}
-      .thumb{width:36px;height:36px;}
-      .arrow{width:34px;height:34px;}
-      .arrow-l{left:2px;}.arrow-r{right:2px;}
+    @media (max-width: 480px) {
+      .viewer { padding: 8px 44px; }
+      .thumb  { width: 36px; height: 36px; }
+      .arrow  { width: 34px; height: 34px; }
+      .arrow-l { left: 2px; } .arrow-r { right: 2px; }
     }
   </style>
 </head>
@@ -128,33 +98,14 @@
   </header>
 
   <div class="viewer" id="viewer">
-    <div id="stage">
+    <div id="loading">
+      <div class="spinner"></div>
+      Cargando guía…
+    </div>
 
-      <!-- Resting spread (always visible, hidden during flip by anim overlay) -->
-      <div id="rest" class="single">
-        <img id="pgL" src="" alt="" draggable="false" />
-        <div class="spine" id="spine" style="display:none"></div>
-        <img id="pgR" src="" alt="" draggable="false" style="display:none" />
-      </div>
-
-      <!-- Animation overlay (hidden when idle) -->
-      <div id="anim" style="display:none">
-        <!-- Static page (non-turning half) -->
-        <img id="staticImg" style="position:absolute;top:0;display:none;object-fit:contain;" />
-        <!-- Spine shown during animation -->
-        <div id="animSpine" style="position:absolute;top:0;width:5px;display:none;
-          background:linear-gradient(to right,#091523 0%,#1e3a5f 45%,#1e3a5f 55%,#091523 100%);"></div>
-        <!-- Destination page revealed under the turning card -->
-        <img id="destUnder" style="position:absolute;top:0;display:none;object-fit:contain;" />
-        <!-- Shadow cast on static page -->
-        <div id="pgShadow" style="position:absolute;pointer-events:none;z-index:4;"></div>
-        <!-- Turning card -->
-        <div id="turnCard">
-          <div class="face" id="turnFront"><img id="fImg" src="" alt="" /></div>
-          <div class="face" id="turnBack"><img id="bImg" src="" alt="" /></div>
-        </div>
-      </div>
-
+    <div id="bookWrap">
+      <!-- StPageFlip renderiza aquí — debe estar vacío -->
+      <div id="flipbook"></div>
     </div>
 
     <button class="arrow arrow-l" id="arrowL" disabled>
@@ -187,309 +138,186 @@
     </div>
     <div class="thumbs" id="thumbs"></div>
   </div>
+
 </div>
 
+<!-- StPageFlip — canvas-based realistic page turn -->
+<script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
 <script>
-/* ── Data ── */
-const TOTAL   = 18;
-const SPINE_W = 5;
-const DUR     = 650; // ms
+const TOTAL = 18;
+const SRCS  = Array.from({length: TOTAL}, (_, i) =>
+  `pages/page-${String(i + 1).padStart(2, '0')}.jpg`);
 
-const SRCS = Array.from({length: TOTAL}, (_, i) =>
-  `pages/page-${String(i+1).padStart(2,'0')}.jpg`);
+const viewer   = document.getElementById('viewer');
+const bookWrap = document.getElementById('bookWrap');
+const flipEl   = document.getElementById('flipbook');
+const loading  = document.getElementById('loading');
+const counter  = document.getElementById('counter');
+const arrowL   = document.getElementById('arrowL');
+const arrowR   = document.getElementById('arrowR');
+const btnFirst = document.getElementById('btnFirst');
+const btnPrev  = document.getElementById('btnPrev');
+const btnNext  = document.getElementById('btnNext');
+const btnLast  = document.getElementById('btnLast');
+const btnFs    = document.getElementById('btnFs');
+const thumbsEl = document.getElementById('thumbs');
 
-/*
-  Spreads (18 pages):
-    0 → [0]          single (cover)
-    1 → [1,2]
-    2 → [3,4]  …
-    8 → [15,16]
-    9 → [17]         single (back)
-*/
-function buildSpreads(n) {
-  const s = [[0]];
-  for (let i = 1; i + 1 < n; i += 2) s.push([i, i+1]);
-  if ((n - 1) % 2 === 0) s.push([n-1]);
-  return s;
-}
-const SPREADS = buildSpreads(TOTAL);
-
-let cur   = 0;
-let busy  = false;
-let psz   = 0; // page size in px (square)
-
-/* ── Elements ── */
-const viewer    = document.getElementById('viewer');
-const stage     = document.getElementById('stage');
-const rest      = document.getElementById('rest');
-const pgL       = document.getElementById('pgL');
-const pgR       = document.getElementById('pgR');
-const spineEl   = document.getElementById('spine');
-const animEl    = document.getElementById('anim');
-const staticImg = document.getElementById('staticImg');
-const animSpine = document.getElementById('animSpine');
-const destUnder = document.getElementById('destUnder');
-const pgShadow  = document.getElementById('pgShadow');
-const turnCard  = document.getElementById('turnCard');
-const fImg      = document.getElementById('fImg');
-const bImg      = document.getElementById('bImg');
-const counter   = document.getElementById('counter');
-const arrowL    = document.getElementById('arrowL');
-const arrowR    = document.getElementById('arrowR');
-const btnFirst  = document.getElementById('btnFirst');
-const btnPrev   = document.getElementById('btnPrev');
-const btnNext   = document.getElementById('btnNext');
-const btnLast   = document.getElementById('btnLast');
-const btnFs     = document.getElementById('btnFs');
-const thumbsEl  = document.getElementById('thumbs');
+let pf       = null;
+let initDone = false;
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
   const d = document.createElement('div');
   d.className = 'thumb';
-  d.title = `Página ${i+1}`;
+  d.title = `Página ${i + 1}`;
   const img = document.createElement('img');
   img.src = src; img.alt = ''; img.loading = 'lazy';
   d.appendChild(img);
-  d.addEventListener('click', () => {
-    const si = SPREADS.findIndex(s => s.includes(i));
-    if (si !== -1) goTo(si);
-  });
+  d.addEventListener('click', () => pf?.flip(i));
   thumbsEl.appendChild(d);
 });
 const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
-/* ── Sizing ── */
-function resize() {
+/* ── Page size calc ── */
+function calcSz() {
   const vw = viewer.clientWidth;
   const vh = viewer.clientHeight;
-  const pages = SPREADS[cur];
-  const double = pages.length === 2;
-
-  if (double) {
-    psz = Math.floor(Math.min(vh - 8, (vw - SPINE_W) / 2, 700));
-  } else {
-    psz = Math.floor(Math.min(vh - 8, vw - 8, 760));
-  }
-
-  // Stage size
-  const sw = double ? psz * 2 + SPINE_W : psz;
-  stage.style.width  = sw + 'px';
-  stage.style.height = psz + 'px';
-
-  // Images
-  pgL.style.width  = pgL.style.height  = psz + 'px';
-  pgR.style.width  = pgR.style.height  = psz + 'px';
+  return Math.floor(Math.min(vh - 16, (vw - 8) / 2, 680));
 }
-window.addEventListener('resize', () => { resize(); renderRest(cur); });
 
-/* ── Render resting state ── */
-function renderRest(si) {
-  const pages  = SPREADS[si];
-  const double = pages.length === 2;
+/* ── UI update ── */
+function updateUI() {
+  if (!pf) return;
+  const idx = pf.getCurrentPageIndex();
 
-  rest.classList.toggle('single', !double);
-  spineEl.style.display  = double ? '' : 'none';
-  pgR.style.display      = double ? '' : 'none';
+  // StPageFlip page numbering with showCover:
+  //   idx 0  = cover (shown alone)
+  //   idx 1  = first body left page
+  //   ...
+  //   idx 17 = back cover (shown alone)
+  const isFirst = idx <= 0;
+  const isLast  = idx >= TOTAL - 1;
 
-  pgL.src = SRCS[pages[0]];
-  pgL.alt = `Página ${pages[0]+1}`;
-  if (double) {
-    pgR.src = SRCS[pages[1]];
-    pgR.alt = `Página ${pages[1]+1}`;
-  }
+  arrowL.disabled = btnFirst.disabled = btnPrev.disabled = isFirst;
+  arrowR.disabled = btnLast.disabled  = btnNext.disabled = isLast;
 
-  // Counter
-  counter.textContent = double
-    ? `${pages[0]+1}–${pages[1]+1} / ${TOTAL}`
-    : `${pages[0]+1} / ${TOTAL}`;
-
-  // Buttons
-  arrowL.disabled = btnFirst.disabled = btnPrev.disabled = si <= 0;
-  arrowR.disabled = btnLast.disabled  = btnNext.disabled = si >= SPREADS.length - 1;
+  // Counter: show page range visible on screen
+  let label;
+  if (idx === 0)        label = `1 / ${TOTAL}`;
+  else if (idx >= TOTAL - 1) label = `${TOTAL} / ${TOTAL}`;
+  else if (idx % 2 === 1)    label = `${idx + 1}–${idx + 2} / ${TOTAL}`;
+  else                       label = `${idx}–${idx + 1} / ${TOTAL}`;
+  counter.textContent = label;
 
   // Thumbs
-  thumbEls.forEach((t, i) => t.classList.toggle('active', pages.includes(i)));
-  thumbEls[pages[0]]?.scrollIntoView({inline:'center', behavior:'smooth', block:'nearest'});
+  thumbEls.forEach((t, i) => {
+    const active = (idx === 0 && i === 0)
+      || (idx >= TOTAL - 1 && i === TOTAL - 1)
+      || (i === idx || i === idx + 1);
+    t.classList.toggle('active', active);
+  });
+  const scrollTo = Math.min(idx, TOTAL - 1);
+  thumbEls[scrollTo]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 }
 
-/* ── Page-turn animation ── */
-function goTo(to) {
-  if (busy || to === cur || to < 0 || to >= SPREADS.length) return;
-  busy = true;
+/* ── Init / reinit StPageFlip ── */
+function initFlip() {
+  const sz = calcSz();
 
-  const fwd   = to > cur;
-  const fromS = SPREADS[cur];
-  const toS   = SPREADS[to];
+  // ⚠️ Container must be EMPTY — StPageFlip manages its own canvas
+  flipEl.innerHTML = '';
 
-  // Animation always uses double-spread sizing (most constrained)
-  const vw = viewer.clientWidth;
-  const vh = viewer.clientHeight;
-  const ap = Math.floor(Math.min(vh - 8, (vw - SPINE_W) / 2, 700)); // anim page size
-  const aw = ap * 2 + SPINE_W;                                        // anim stage width
-
-  // Size stage for animation
-  stage.style.width  = aw + 'px';
-  stage.style.height = ap + 'px';
-
-  // Hide rest entirely — all pages rendered in anim layer
-  rest.style.visibility = 'hidden';
-  animEl.style.display  = '';
-
-  // Helper to apply shared img styles
-  function imgStyle(left, shadow) {
-    return `position:absolute;left:${left}px;top:0;width:${ap}px;height:${ap}px;` +
-           `display:block;object-fit:contain;z-index:1;box-shadow:${shadow};`;
-  }
-  const shadowL = '-4px 2px 18px rgba(0,0,0,.65)';
-  const shadowR =  '4px 2px 18px rgba(0,0,0,.65)';
-
-  if (fwd) {
-    /*
-      Forward: right page (or cover) flips LEFT over the spine.
-        turnCard front = current right page
-        turnCard back  = destination left page
-        destUnder      = destination right page (revealed when card completes turn)
-        staticImg      = current left page (doesn't move)
-    */
-    const turningPage = fromS.length === 2 ? fromS[1] : fromS[0];
-    const backPage    = toS[0];
-    const destRight   = toS.length === 2 ? toS[1] : null;
-
-    fImg.src = SRCS[turningPage];
-    bImg.src = SRCS[backPage];
-
-    // Static left page
-    if (fromS.length === 2) {
-      staticImg.src       = SRCS[fromS[0]];
-      staticImg.style.cssText = imgStyle(0, shadowL) +
-        'border-radius:3px 0 0 3px;';
-      animSpine.style.cssText =
-        `position:absolute;left:${ap}px;top:0;width:${SPINE_W}px;height:${ap}px;display:block;z-index:1;`;
-    } else {
-      staticImg.style.display = 'none';
-      animSpine.style.display = 'none';
-    }
-
-    // Destination right page (under turning card)
-    if (destRight !== null) {
-      destUnder.src           = SRCS[destRight];
-      destUnder.style.cssText = imgStyle(ap + SPINE_W, shadowR) +
-        'border-radius:0 3px 3px 0;';
-    } else {
-      destUnder.style.display = 'none';
-    }
-
-    // Turn card on right half
-    turnCard.style.cssText =
-      `left:${ap + SPINE_W}px;top:0;width:${ap}px;height:${ap}px;` +
-      `transform-origin:left center;position:absolute;z-index:2;transform-style:preserve-3d;`;
-
-    // Shadow sweeping over static page
-    if (fromS.length === 2) {
-      pgShadow.style.cssText =
-        `left:0;top:0;width:${ap}px;height:${ap}px;` +
-        `background:linear-gradient(to left,rgba(0,0,0,.45),transparent);` +
-        `animation:shadowFwd ${DUR}ms ease forwards;z-index:3;position:absolute;`;
-    } else {
-      pgShadow.style.cssText = 'display:none';
-    }
-
-    turnCard.style.animation = `turnFwd ${DUR}ms cubic-bezier(.4,0,.2,1) forwards`;
-
-  } else {
-    /*
-      Backward: left page (or back cover) flips RIGHT.
-        turnCard front = current left page
-        turnCard back  = destination right page
-        destUnder      = destination left page
-        staticImg      = current right page (doesn't move)
-    */
-    const turningPage = fromS[0];
-    const backPage    = toS.length === 2 ? toS[1] : toS[0];
-    const destLeft    = toS[0];
-
-    fImg.src = SRCS[turningPage];
-    bImg.src = SRCS[backPage];
-
-    // Static right page
-    if (fromS.length === 2) {
-      staticImg.src       = SRCS[fromS[1]];
-      staticImg.style.cssText = imgStyle(ap + SPINE_W, shadowR) +
-        'border-radius:0 3px 3px 0;';
-      animSpine.style.cssText =
-        `position:absolute;left:${ap}px;top:0;width:${SPINE_W}px;height:${ap}px;display:block;z-index:1;`;
-    } else {
-      staticImg.style.display = 'none';
-      animSpine.style.display = 'none';
-    }
-
-    // Destination left page (under turning card)
-    destUnder.src           = SRCS[destLeft];
-    destUnder.style.cssText = imgStyle(0, shadowL) +
-      'border-radius:3px 0 0 3px;';
-
-    // Turn card on left half
-    turnCard.style.cssText =
-      `left:0;top:0;width:${ap}px;height:${ap}px;` +
-      `transform-origin:right center;position:absolute;z-index:2;transform-style:preserve-3d;`;
-
-    // Shadow sweeping over static page
-    if (fromS.length === 2) {
-      pgShadow.style.cssText =
-        `left:${ap + SPINE_W}px;top:0;width:${ap}px;height:${ap}px;` +
-        `background:linear-gradient(to right,rgba(0,0,0,.45),transparent);` +
-        `animation:shadowBwd ${DUR}ms ease forwards;z-index:3;position:absolute;`;
-    } else {
-      pgShadow.style.cssText = 'display:none';
-    }
-
-    turnCard.style.animation = `turnBwd ${DUR}ms cubic-bezier(.4,0,.2,1) forwards`;
+  if (pf) {
+    try { pf.destroy(); } catch (_) {}
+    pf = null;
   }
 
-  // After animation: swap to resting state
-  setTimeout(() => {
-    cur = to;
-    turnCard.style.animation = 'none';
-    resize();          // recalculate psz for new spread
-    renderRest(cur);   // update rest with destination spread
-    rest.style.visibility = '';   // restore rest
-    animEl.style.display  = 'none';
-    busy = false;
-  }, DUR + 20);
+  pf = new St.PageFlip(flipEl, {
+    width:  sz,
+    height: sz,
+
+    size:      'fixed',
+    minWidth:  sz,
+    minHeight: sz,
+    maxWidth:  sz,
+    maxHeight: sz,
+
+    showCover:           true,   // cover and back shown as single pages
+    usePortrait:         false,  // always double-page spread
+    autoSize:            false,
+    drawShadow:          true,   // built-in canvas shadow
+    flippingTime:        800,    // ms — smooth but not slow
+    maxShadowOpacity:    0.6,
+    mobileScrollSupport: false,
+    useMouseEvents:      true,
+    swipeDistance:       30,
+    clickEventForward:   true,   // clicking right half goes forward
+    startZIndex:         0,
+  });
+
+  // ← loadFromImages only, NO manual img injection
+  pf.loadFromImages(SRCS);
+
+  pf.on('flip',        updateUI);
+  pf.on('changeState', updateUI);
+
+  pf.on('init', () => {
+    loading.style.display = 'none';
+    initDone = true;
+    updateUI();
+  });
 }
 
 /* ── Controls ── */
-arrowL.addEventListener  ('click', () => goTo(cur - 1));
-arrowR.addEventListener  ('click', () => goTo(cur + 1));
-btnFirst.addEventListener('click', () => goTo(0));
-btnPrev.addEventListener ('click', () => goTo(cur - 1));
-btnNext.addEventListener ('click', () => goTo(cur + 1));
-btnLast.addEventListener ('click', () => goTo(SPREADS.length - 1));
+arrowL.addEventListener  ('click', () => pf?.flipPrev());
+arrowR.addEventListener  ('click', () => pf?.flipNext());
+btnFirst.addEventListener('click', () => pf?.flip(0));
+btnPrev.addEventListener ('click', () => pf?.flipPrev());
+btnNext.addEventListener ('click', () => pf?.flipNext());
+btnLast.addEventListener ('click', () => pf?.flip(TOTAL - 1));
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(cur + 1);
-  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(cur - 1);
-  if (e.key === 'Home') goTo(0);
-  if (e.key === 'End')  goTo(SPREADS.length - 1);
+  if (!initDone) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') pf?.flipNext();
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   pf?.flipPrev();
+  if (e.key === 'Home') pf?.flip(0);
+  if (e.key === 'End')  pf?.flip(TOTAL - 1);
 });
 
+/* Touch swipe */
 let tx = 0;
-viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive:true});
+viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive: true});
 viewer.addEventListener('touchend',   e => {
   const dx = e.changedTouches[0].clientX - tx;
-  if (Math.abs(dx) > 40) dx < 0 ? goTo(cur + 1) : goTo(cur - 1);
-}, {passive:true});
+  if (Math.abs(dx) > 40) dx < 0 ? pf?.flipNext() : pf?.flipPrev();
+}, {passive: true});
 
+/* Fullscreen */
 btnFs.addEventListener('click', () => {
-  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
   else document.exitFullscreen();
 });
-document.addEventListener('fullscreenchange', () => setTimeout(() => { resize(); renderRest(cur); }, 100));
 
-/* ── Init ── */
-resize();
-renderRest(0);
+/* Resize — reinit with new dimensions */
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const pg = pf?.getCurrentPageIndex() ?? 0;
+    initFlip();
+    // restore page after reinit
+    pf?.on('init', () => { if (pg > 0) pf.flip(pg); });
+  }, 250);
+});
+
+document.addEventListener('fullscreenchange', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(initFlip, 150);
+});
+
+/* ── Boot ── */
+initFlip();
 </script>
 </body>
 </html>
