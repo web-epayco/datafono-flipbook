@@ -15,7 +15,6 @@
       overflow: hidden;
     }
 
-    /* ── Layout ── */
     .app {
       display: flex;
       flex-direction: column;
@@ -27,22 +26,13 @@
       flex-shrink: 0;
       background: #1e293b;
       border-bottom: 1px solid #1e3a5f;
-      padding: 12px 20px;
+      padding: 11px 20px;
       display: flex;
       align-items: center;
-      gap: 10px;
     }
-    .header-logo {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: #00c6b8;
-    }
+    .header-logo { font-size: 1.1rem; font-weight: 700; color: #00c6b8; }
     .header-logo span { color: #e2e8f0; font-weight: 300; }
-    .header-sub {
-      font-size: .72rem;
-      color: #64748b;
-      margin-top: 1px;
-    }
+    .header-sub  { font-size: .7rem; color: #64748b; margin-top: 1px; }
 
     /* ── Viewer ── */
     .viewer {
@@ -52,63 +42,63 @@
       justify-content: center;
       position: relative;
       overflow: hidden;
+      padding: 12px 52px; /* room for arrows */
     }
 
-    /* click zones */
-    .zone {
-      position: absolute;
-      top: 0; bottom: 0;
-      width: 38%;
-      z-index: 5;
-      cursor: pointer;
-    }
-    .zone-left  { left: 0; }
-    .zone-right { right: 0; }
-
-    /* page frame */
+    /* ── Book / spread ── */
     .book {
       position: relative;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
+      perspective: 2000px;
     }
 
-    .page-wrap {
-      position: relative;
-      perspective: 1800px;
-    }
+    /* Single cover/back cover */
+    .book.single .page-right { display: none; }
+    .book.single .spine      { display: none; }
 
-    .page-img {
+    /* Each half */
+    .page-left, .page-right {
       display: block;
-      border-radius: 3px;
-      box-shadow:
-        0 2px 4px rgba(0,0,0,.4),
-        0 8px 24px rgba(0,0,0,.55),
-        0 24px 60px rgba(0,0,0,.45),
-        4px 0 12px rgba(0,0,0,.3);
-      user-select: none;
-      -webkit-user-drag: none;
-      /* size set by JS */
+      object-fit: contain;
+      /* width/height set by JS */
     }
 
-    /* flip animations */
-    .page-wrap.go-next { animation: flipNext .45s ease both; }
-    .page-wrap.go-prev { animation: flipPrev .45s ease both; }
-
-    @keyframes flipNext {
-      0%   { transform: rotateY(0deg);   opacity: 1; }
-      45%  { transform: rotateY(88deg);  opacity: 0; }
-      55%  { transform: rotateY(-88deg); opacity: 0; }
-      100% { transform: rotateY(0deg);   opacity: 1; }
-    }
-    @keyframes flipPrev {
-      0%   { transform: rotateY(0deg);  opacity: 1; }
-      45%  { transform: rotateY(-88deg); opacity: 0; }
-      55%  { transform: rotateY(88deg);  opacity: 0; }
-      100% { transform: rotateY(0deg);  opacity: 1; }
+    /* Drop shadow per half */
+    .page-left  { border-radius: 2px 0 0 2px; box-shadow: -4px 4px 20px rgba(0,0,0,.6), -1px 0 8px rgba(0,0,0,.4); }
+    .page-right { border-radius: 0 2px 2px 0; box-shadow:  4px 4px 20px rgba(0,0,0,.6),  1px 0 8px rgba(0,0,0,.4); }
+    .book.single .page-left {
+      border-radius: 2px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.5);
     }
 
-    /* side arrows */
+    /* Spine */
+    .spine {
+      width: 5px;
+      background: linear-gradient(to right, #0a1628 0%, #1e3a5f 40%, #1e3a5f 60%, #0a1628 100%);
+      flex-shrink: 0;
+      align-self: stretch;
+    }
+
+    /* Flip animation — whole .book flips */
+    .book.go-next { animation: flipFwd .48s cubic-bezier(.4,0,.2,1) both; }
+    .book.go-prev { animation: flipBck .48s cubic-bezier(.4,0,.2,1) both; }
+
+    @keyframes flipFwd {
+      0%   { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
+      40%  { transform: perspective(2000px) rotateY(80deg);  opacity: 0; }
+      60%  { transform: perspective(2000px) rotateY(-80deg); opacity: 0; }
+      100% { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
+    }
+    @keyframes flipBck {
+      0%   { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
+      40%  { transform: perspective(2000px) rotateY(-80deg); opacity: 0; }
+      60%  { transform: perspective(2000px) rotateY(80deg);  opacity: 0; }
+      100% { transform: perspective(2000px) rotateY(0deg);   opacity: 1; }
+    }
+
+    /* ── Arrows ── */
     .arrow {
       position: absolute;
       top: 50%;
@@ -121,13 +111,13 @@
       cursor: pointer;
       color: #94a3b8;
       display: flex; align-items: center; justify-content: center;
-      transition: background .15s, color .15s, border-color .15s, transform .15s;
+      transition: background .15s, color .15s, border-color .15s;
       backdrop-filter: blur(6px);
     }
-    .arrow:hover { background: #1e293b; color: #00c6b8; border-color: #00c6b8; transform: translateY(-50%) scale(1.08); }
-    .arrow.disabled { opacity: .2; pointer-events: none; }
-    .arrow-left  { left: -20px; }
-    .arrow-right { right: -20px; }
+    .arrow:hover      { background: #1e293b; color: #00c6b8; border-color: #00c6b8; }
+    .arrow[disabled]  { opacity: .2; pointer-events: none; }
+    .arrow.arrow-left  { left: 6px; }
+    .arrow.arrow-right { right: 6px; }
     .arrow svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 
     /* ── Bottom bar ── */
@@ -135,57 +125,52 @@
       flex-shrink: 0;
       background: #1e293b;
       border-top: 1px solid #1e3a5f;
-      padding: 8px 16px 10px;
+      padding: 7px 16px 9px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 7px;
     }
 
-    .bottom-row {
+    .ctrl-row {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
     }
 
-    .icon-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: #64748b;
-      width: 32px; height: 32px;
-      border-radius: 6px;
+    .ctrl-btn {
+      background: none; border: none;
+      cursor: pointer; color: #64748b;
+      width: 30px; height: 30px;
+      border-radius: 5px;
       display: flex; align-items: center; justify-content: center;
       transition: color .15s, background .15s;
     }
-    .icon-btn:hover { color: #00c6b8; background: #0f172a; }
-    .icon-btn.disabled, .icon-btn:disabled { opacity: .25; pointer-events: none; }
-    .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+    .ctrl-btn:hover         { color: #00c6b8; background: #0f172a; }
+    .ctrl-btn[disabled]     { opacity: .2; pointer-events: none; }
+    .ctrl-btn svg           { width: 19px; height: 19px; fill: currentColor; }
 
     .counter {
-      font-size: .82rem;
-      color: #94a3b8;
-      min-width: 52px;
-      text-align: center;
+      font-size: .8rem; color: #94a3b8;
+      min-width: 72px; text-align: center;
     }
+    .vline { width: 1px; height: 16px; background: #1e3a5f; margin: 0 2px; }
 
-    .divider { width: 1px; height: 18px; background: #1e3a5f; }
-
-    /* thumbnails */
+    /* Thumbnails */
     .thumbs {
       display: flex;
-      gap: 5px;
+      gap: 4px;
       overflow-x: auto;
       padding-bottom: 2px;
       scrollbar-width: thin;
-      scrollbar-color: #1e3a5f transparent;
+      scrollbar-color: #334155 transparent;
     }
     .thumbs::-webkit-scrollbar { height: 3px; }
     .thumbs::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
 
     .thumb {
       flex-shrink: 0;
-      width: 46px; height: 46px;
+      width: 44px; height: 44px;
       border-radius: 3px;
       overflow: hidden;
       cursor: pointer;
@@ -197,9 +182,12 @@
     .thumb:hover  { opacity: .8;  border-color: #00c6b8; }
     .thumb.active { opacity: 1;   border-color: #00c6b8; }
 
-    /* ── Mobile ── */
     @media (max-width: 480px) {
-      .thumb { width: 38px; height: 38px; }
+      .viewer { padding: 8px 44px; }
+      .thumb  { width: 36px; height: 36px; }
+      .arrow  { width: 34px; height: 34px; }
+      .arrow.arrow-left  { left: 2px; }
+      .arrow.arrow-right { right: 2px; }
     }
   </style>
 </head>
@@ -214,53 +202,40 @@
   </header>
 
   <div class="viewer" id="viewer">
-    <div class="zone zone-left"  id="zoneLeft"></div>
-    <div class="zone zone-right" id="zoneRight"></div>
-
-    <div class="book" id="book">
-      <div class="page-wrap" id="pageWrap">
-        <img class="page-img" id="pageImg" src="pages/page-01.png" alt="Página 1" draggable="false" />
-      </div>
-
-      <button class="arrow arrow-left disabled"  id="arrowLeft">
-        <svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
-      </button>
-      <button class="arrow arrow-right" id="arrowRight">
-        <svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
-      </button>
+    <div class="book single" id="book">
+      <img class="page-left"  id="imgLeft"  src="" alt="" draggable="false" />
+      <div class="spine"      id="spine"></div>
+      <img class="page-right" id="imgRight" src="" alt="" draggable="false" />
     </div>
+
+    <button class="arrow arrow-left"  id="arrowL" disabled>
+      <svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <button class="arrow arrow-right" id="arrowR">
+      <svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+    </button>
   </div>
 
   <div class="bottom">
-    <div class="bottom-row">
-      <!-- first -->
-      <button class="icon-btn disabled" id="btnFirst" title="Primera página">
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="btnFirst" disabled title="Primera página">
         <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
       </button>
-      <!-- prev -->
-      <button class="icon-btn disabled" id="btnPrev" title="Anterior">
+      <button class="ctrl-btn" id="btnPrev"  disabled title="Anterior">
         <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
       </button>
-
-      <span class="counter" id="counter">1 / 18</span>
-
-      <!-- next -->
-      <button class="icon-btn" id="btnNext" title="Siguiente">
+      <span class="counter" id="counter">— / —</span>
+      <button class="ctrl-btn" id="btnNext"  title="Siguiente">
         <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
       </button>
-      <!-- last -->
-      <button class="icon-btn" id="btnLast" title="Última página">
+      <button class="ctrl-btn" id="btnLast"  title="Última página">
         <svg viewBox="0 0 24 24"><path d="M18 6h-2v12h2zm-3.5 6L6 6v12z"/></svg>
       </button>
-
-      <div class="divider"></div>
-
-      <!-- fullscreen -->
-      <button class="icon-btn" id="btnFs" title="Pantalla completa">
+      <div class="vline"></div>
+      <button class="ctrl-btn" id="btnFs" title="Pantalla completa">
         <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zm-3-12v2h3v3h2V5h-5z"/></svg>
       </button>
     </div>
-
     <div class="thumbs" id="thumbs"></div>
   </div>
 
@@ -268,123 +243,174 @@
 <script>
 const TOTAL = 18;
 const SRCS  = Array.from({length: TOTAL}, (_, i) =>
-  `pages/page-${String(i + 1).padStart(2, '0')}.png`
+  `pages/page-${String(i + 1).padStart(2, '0')}.jpg`
 );
 
-let cur      = 0;
-let busy     = false;
+/*
+  Spread model (18 pages, 0-indexed):
+    spread 0  → [0]        (cover, single)
+    spread 1  → [1, 2]
+    spread 2  → [3, 4]
+    ...
+    spread 8  → [15, 16]
+    spread 9  → [17]       (back, single)
+*/
+function buildSpreads(n) {
+  const list = [[0]];                           // cover
+  for (let i = 1; i + 1 < n; i += 2)
+    list.push([i, i + 1]);                      // double spreads
+  if ((n - 1) % 2 === 0) list.push([n - 1]);   // back cover (only when even total)
+  // For odd totals the last double spread absorbs it — already handled above
+  return list;
+}
 
-const viewer    = document.getElementById('viewer');
-const pageWrap  = document.getElementById('pageWrap');
-const pageImg   = document.getElementById('pageImg');
-const counter   = document.getElementById('counter');
-const arrowL    = document.getElementById('arrowLeft');
-const arrowR    = document.getElementById('arrowRight');
-const btnFirst  = document.getElementById('btnFirst');
-const btnPrev   = document.getElementById('btnPrev');
-const btnNext   = document.getElementById('btnNext');
-const btnLast   = document.getElementById('btnLast');
-const btnFs     = document.getElementById('btnFs');
-const thumbsEl  = document.getElementById('thumbs');
+const SPREADS = buildSpreads(TOTAL);
+let cur   = 0;   // spread index
+let busy  = false;
 
-/* ── Build thumbnails ── */
+const book     = document.getElementById('book');
+const imgLeft  = document.getElementById('imgLeft');
+const imgRight = document.getElementById('imgRight');
+const counter  = document.getElementById('counter');
+const arrowL   = document.getElementById('arrowL');
+const arrowR   = document.getElementById('arrowR');
+const btnFirst = document.getElementById('btnFirst');
+const btnPrev  = document.getElementById('btnPrev');
+const btnNext  = document.getElementById('btnNext');
+const btnLast  = document.getElementById('btnLast');
+const btnFs    = document.getElementById('btnFs');
+const viewer   = document.getElementById('viewer');
+const thumbsEl = document.getElementById('thumbs');
+
+/* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
-  const d   = document.createElement('div');
-  d.className = 'thumb' + (i === 0 ? ' active' : '');
-  d.title   = `Página ${i + 1}`;
-  const img = document.createElement('img');
-  img.src   = src; img.alt = '';
-  img.loading = 'lazy';
+  const d = document.createElement('div');
+  d.className = 'thumb';
+  d.title     = `Página ${i + 1}`;
+  const img   = document.createElement('img');
+  img.src = src; img.alt = ''; img.loading = 'lazy';
   d.appendChild(img);
-  d.addEventListener('click', () => go(i));
+  d.addEventListener('click', () => {
+    const si = SPREADS.findIndex(s => s.includes(i));
+    goTo(si);
+  });
   thumbsEl.appendChild(d);
 });
 const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
 /* ── Sizing ── */
 function resize() {
-  const vw  = viewer.clientWidth;
-  const vh  = viewer.clientHeight;
-  const sz  = Math.floor(Math.min(vw - 72, vh - 24, 680));
-  pageImg.style.width  = sz + 'px';
-  pageImg.style.height = sz + 'px';
-  pageImg.style.objectFit = 'contain';
+  const vw = viewer.clientWidth;
+  const vh = viewer.clientHeight;
+  const isSingle = SPREADS[cur].length === 1;
+
+  if (isSingle) {
+    const sz = Math.floor(Math.min(vw - 8, vh - 8, 800));
+    imgLeft.style.width  = sz + 'px';
+    imgLeft.style.height = sz + 'px';
+  } else {
+    // Double: each page gets half width minus spine (5px)
+    const maxH = vh - 8;
+    const maxW = Math.floor((vw - 5) / 2);
+    const sz   = Math.min(maxH, maxW, 680);
+    imgLeft.style.width   = sz + 'px';
+    imgLeft.style.height  = sz + 'px';
+    imgRight.style.width  = sz + 'px';
+    imgRight.style.height = sz + 'px';
+  }
 }
 window.addEventListener('resize', resize);
-resize();
 
-/* ── Update UI state ── */
-function updateUI() {
-  counter.textContent = `${cur + 1} / ${TOTAL}`;
-  const first = cur <= 0;
-  const last  = cur >= TOTAL - 1;
-  arrowL.classList.toggle('disabled', first);
-  arrowR.classList.toggle('disabled', last);
-  btnFirst.classList.toggle('disabled', first);
-  btnPrev.classList.toggle('disabled', first);
-  btnNext.classList.toggle('disabled', last);
-  btnLast.classList.toggle('disabled', last);
-  thumbEls.forEach((t, i) => t.classList.toggle('active', i === cur));
-  thumbEls[cur]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
+/* ── Render a spread ── */
+function render(spreadIdx) {
+  const pages = SPREADS[spreadIdx];
+  const single = pages.length === 1;
+
+  book.classList.toggle('single', single);
+
+  imgLeft.src = SRCS[pages[0]];
+  imgLeft.alt = `Página ${pages[0] + 1}`;
+
+  if (!single) {
+    imgRight.src = SRCS[pages[1]];
+    imgRight.alt = `Página ${pages[1] + 1}`;
+  }
+
+  // Counter label
+  if (single) {
+    counter.textContent = `${pages[0] + 1} / ${TOTAL}`;
+  } else {
+    counter.textContent = `${pages[0] + 1}–${pages[1] + 1} / ${TOTAL}`;
+  }
+
+  // Buttons
+  const first = spreadIdx <= 0;
+  const last  = spreadIdx >= SPREADS.length - 1;
+  arrowL.disabled  = btnFirst.disabled = btnPrev.disabled = first;
+  arrowR.disabled  = btnLast.disabled  = btnNext.disabled = last;
+
+  // Thumbs
+  thumbEls.forEach((t, i) => t.classList.toggle('active', pages.includes(i)));
+  const mid = single ? pages[0] : pages[0];
+  thumbEls[mid]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
+
+  resize();
 }
 
 /* ── Navigate ── */
-function go(to) {
-  if (busy || to === cur || to < 0 || to >= TOTAL) return;
+function goTo(to, dir) {
+  if (busy || to === cur || to < 0 || to >= SPREADS.length) return;
   busy = true;
 
-  const cls = to > cur ? 'go-next' : 'go-prev';
-  pageWrap.classList.add(cls);
+  const cls = (dir ?? (to > cur ? 'next' : 'prev')) === 'next' ? 'go-next' : 'go-prev';
+  book.classList.add(cls);
 
-  // Swap image at mid-point of animation
   setTimeout(() => {
     cur = to;
-    pageImg.src = SRCS[cur];
-    pageImg.alt = `Página ${cur + 1}`;
-    updateUI();
-  }, 225);
+    render(cur);
+    book.classList.remove(cls);       // remove early so re-add doesn't clash
+    void book.offsetWidth;            // force reflow
+    book.classList.add(cls);          // already mid-animation — noop; let animationend clean up
+  }, 240);
 
-  pageWrap.addEventListener('animationend', () => {
-    pageWrap.classList.remove(cls);
+  book.addEventListener('animationend', () => {
+    book.classList.remove('go-next', 'go-prev');
     busy = false;
   }, {once: true});
 }
 
 /* ── Controls ── */
-arrowL.addEventListener ('click', () => go(cur - 1));
-arrowR.addEventListener ('click', () => go(cur + 1));
-btnFirst.addEventListener('click', () => go(0));
-btnPrev.addEventListener ('click', () => go(cur - 1));
-btnNext.addEventListener ('click', () => go(cur + 1));
-btnLast.addEventListener ('click', () => go(TOTAL - 1));
+arrowL.addEventListener  ('click', () => goTo(cur - 1, 'prev'));
+arrowR.addEventListener  ('click', () => goTo(cur + 1, 'next'));
+btnFirst.addEventListener('click', () => goTo(0, 'prev'));
+btnPrev.addEventListener ('click', () => goTo(cur - 1, 'prev'));
+btnNext.addEventListener ('click', () => goTo(cur + 1, 'next'));
+btnLast.addEventListener ('click', () => goTo(SPREADS.length - 1, 'next'));
 
-document.getElementById('zoneLeft') .addEventListener('click', () => go(cur - 1));
-document.getElementById('zoneRight').addEventListener('click', () => go(cur + 1));
-
-/* keyboard */
 document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(cur + 1);
-  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(cur - 1);
-  if (e.key === 'Home') go(0);
-  if (e.key === 'End')  go(TOTAL - 1);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(cur + 1, 'next');
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(cur - 1, 'prev');
+  if (e.key === 'Home') goTo(0, 'prev');
+  if (e.key === 'End')  goTo(SPREADS.length - 1, 'next');
 });
 
-/* touch swipe */
+/* Touch swipe */
 let tx = 0;
 viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive: true});
 viewer.addEventListener('touchend',   e => {
   const dx = e.changedTouches[0].clientX - tx;
-  if (Math.abs(dx) > 40) dx < 0 ? go(cur + 1) : go(cur - 1);
+  if (Math.abs(dx) > 40) dx < 0 ? goTo(cur + 1, 'next') : goTo(cur - 1, 'prev');
 }, {passive: true});
 
-/* fullscreen */
+/* Fullscreen */
 btnFs.addEventListener('click', () => {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
   else document.exitFullscreen();
 });
 document.addEventListener('fullscreenchange', () => setTimeout(resize, 100));
 
-updateUI();
+/* Initial render */
+render(0);
 </script>
 </body>
 </html>
