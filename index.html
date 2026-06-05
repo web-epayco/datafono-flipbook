@@ -139,10 +139,15 @@
 
       <!-- Animation overlay (hidden when idle) -->
       <div id="anim" style="display:none">
-        <!-- "Destination" layer underneath the turning page -->
-        <img id="destUnder" style="position:absolute;top:0;bottom:0;display:block;object-fit:contain;" />
-        <!-- Shadow on the static page -->
-        <div id="pgShadow"></div>
+        <!-- Static page (non-turning half) -->
+        <img id="staticImg" style="position:absolute;top:0;display:none;object-fit:contain;" />
+        <!-- Spine shown during animation -->
+        <div id="animSpine" style="position:absolute;top:0;width:5px;display:none;
+          background:linear-gradient(to right,#091523 0%,#1e3a5f 45%,#1e3a5f 55%,#091523 100%);"></div>
+        <!-- Destination page revealed under the turning card -->
+        <img id="destUnder" style="position:absolute;top:0;display:none;object-fit:contain;" />
+        <!-- Shadow cast on static page -->
+        <div id="pgShadow" style="position:absolute;pointer-events:none;z-index:4;"></div>
         <!-- Turning card -->
         <div id="turnCard">
           <div class="face" id="turnFront"><img id="fImg" src="" alt="" /></div>
@@ -221,6 +226,8 @@ const pgL       = document.getElementById('pgL');
 const pgR       = document.getElementById('pgR');
 const spineEl   = document.getElementById('spine');
 const animEl    = document.getElementById('anim');
+const staticImg = document.getElementById('staticImg');
+const animSpine = document.getElementById('animSpine');
 const destUnder = document.getElementById('destUnder');
 const pgShadow  = document.getElementById('pgShadow');
 const turnCard  = document.getElementById('turnCard');
@@ -315,120 +322,141 @@ function goTo(to) {
   const fromS = SPREADS[cur];
   const toS   = SPREADS[to];
 
-  /*
-    Forward: right page (or single cover) flips LEFT
-      - turn origin: left edge of right half
-      - front: fromS right page
-      - back:  toS left page
-      - dest (under turning page): toS right page, sitting on right half
-      - static (doesn't move): fromS left page (if double), else nothing
+  // Animation always uses double-spread sizing (most constrained)
+  const vw = viewer.clientWidth;
+  const vh = viewer.clientHeight;
+  const ap = Math.floor(Math.min(vh - 8, (vw - SPINE_W) / 2, 700)); // anim page size
+  const aw = ap * 2 + SPINE_W;                                        // anim stage width
 
-    Backward: left page (or single back) flips RIGHT
-      - turn origin: right edge of left half
-      - front: fromS left page
-      - back:  toS right page
-      - dest (under turning page): toS left page, sitting on left half
-      - static (doesn't move): fromS right page (if double), else nothing
-  */
+  // Size stage for animation
+  stage.style.width  = aw + 'px';
+  stage.style.height = ap + 'px';
 
-  resize(); // ensure psz is current
+  // Hide rest entirely — all pages rendered in anim layer
+  rest.style.visibility = 'hidden';
+  animEl.style.display  = '';
 
-  const sw = SPREADS[cur].length === 2 ? psz * 2 + SPINE_W : psz;
-  // Recompute for the destination too
-  const destDouble = toS.length === 2;
-  const destSW     = destDouble ? psz * 2 + SPINE_W : psz;
-
-  // Show rest with CURRENT spread as background
-  renderRest(cur);
-  animEl.style.display = '';
+  // Helper to apply shared img styles
+  function imgStyle(left, shadow) {
+    return `position:absolute;left:${left}px;top:0;width:${ap}px;height:${ap}px;` +
+           `display:block;object-fit:contain;z-index:1;box-shadow:${shadow};`;
+  }
+  const shadowL = '-4px 2px 18px rgba(0,0,0,.65)';
+  const shadowR =  '4px 2px 18px rgba(0,0,0,.65)';
 
   if (fwd) {
+    /*
+      Forward: right page (or cover) flips LEFT over the spine.
+        turnCard front = current right page
+        turnCard back  = destination left page
+        destUnder      = destination right page (revealed when card completes turn)
+        staticImg      = current left page (doesn't move)
+    */
     const turningPage = fromS.length === 2 ? fromS[1] : fromS[0];
     const backPage    = toS[0];
     const destRight   = toS.length === 2 ? toS[1] : null;
 
-    // front of turn = turning page (right of current spread, or single cover)
     fImg.src = SRCS[turningPage];
-    // back of turn = left page of next spread
     bImg.src = SRCS[backPage];
 
-    // destUnder: right side of destination, shown UNDER the turn card
-    if (destRight !== null) {
-      destUnder.style.cssText =
-        `left:${psz + SPINE_W}px; top:0; width:${psz}px; height:${psz}px; display:block;`;
-      destUnder.src = SRCS[destRight];
+    // Static left page
+    if (fromS.length === 2) {
+      staticImg.src       = SRCS[fromS[0]];
+      staticImg.style.cssText = imgStyle(0, shadowL) +
+        'border-radius:3px 0 0 3px;';
+      animSpine.style.cssText =
+        `position:absolute;left:${ap}px;top:0;width:${SPINE_W}px;height:${ap}px;display:block;z-index:1;`;
     } else {
-      // destination is single — no right page under turn
+      staticImg.style.display = 'none';
+      animSpine.style.display = 'none';
+    }
+
+    // Destination right page (under turning card)
+    if (destRight !== null) {
+      destUnder.src           = SRCS[destRight];
+      destUnder.style.cssText = imgStyle(ap + SPINE_W, shadowR) +
+        'border-radius:0 3px 3px 0;';
+    } else {
       destUnder.style.display = 'none';
     }
 
-    // turnCard: cover the right half (or full single for cover)
-    const tcLeft = fromS.length === 2 ? psz + SPINE_W : 0;
+    // Turn card on right half
     turnCard.style.cssText =
-      `left:${tcLeft}px; top:0; width:${psz}px; height:${psz}px;
-       transform-origin:left center;`;
+      `left:${ap + SPINE_W}px;top:0;width:${ap}px;height:${ap}px;` +
+      `transform-origin:left center;position:absolute;z-index:2;transform-style:preserve-3d;`;
 
-    // shadow falls on the left static page during the flip
+    // Shadow sweeping over static page
     if (fromS.length === 2) {
       pgShadow.style.cssText =
-        `left:0; top:0; width:${psz}px; height:${psz}px;
-         background:linear-gradient(to left,rgba(0,0,0,.45),transparent);
-         animation:shadowFwd ${DUR}ms ease forwards;`;
+        `left:0;top:0;width:${ap}px;height:${ap}px;` +
+        `background:linear-gradient(to left,rgba(0,0,0,.45),transparent);` +
+        `animation:shadowFwd ${DUR}ms ease forwards;z-index:3;position:absolute;`;
     } else {
-      pgShadow.style.display = 'none';
+      pgShadow.style.cssText = 'display:none';
     }
 
-    // Animate
     turnCard.style.animation = `turnFwd ${DUR}ms cubic-bezier(.4,0,.2,1) forwards`;
 
   } else {
-    // Backward
-    const turningPage = fromS.length === 2 ? fromS[0] : fromS[0];
+    /*
+      Backward: left page (or back cover) flips RIGHT.
+        turnCard front = current left page
+        turnCard back  = destination right page
+        destUnder      = destination left page
+        staticImg      = current right page (doesn't move)
+    */
+    const turningPage = fromS[0];
     const backPage    = toS.length === 2 ? toS[1] : toS[0];
     const destLeft    = toS[0];
 
     fImg.src = SRCS[turningPage];
     bImg.src = SRCS[backPage];
 
-    // destUnder: left side of prev spread, shown under the turn card
-    destUnder.style.cssText =
-      `left:0; top:0; width:${psz}px; height:${psz}px; display:block;`;
-    destUnder.src = SRCS[destLeft];
+    // Static right page
+    if (fromS.length === 2) {
+      staticImg.src       = SRCS[fromS[1]];
+      staticImg.style.cssText = imgStyle(ap + SPINE_W, shadowR) +
+        'border-radius:0 3px 3px 0;';
+      animSpine.style.cssText =
+        `position:absolute;left:${ap}px;top:0;width:${SPINE_W}px;height:${ap}px;display:block;z-index:1;`;
+    } else {
+      staticImg.style.display = 'none';
+      animSpine.style.display = 'none';
+    }
 
-    // turnCard: cover the left half (or full single for back cover)
+    // Destination left page (under turning card)
+    destUnder.src           = SRCS[destLeft];
+    destUnder.style.cssText = imgStyle(0, shadowL) +
+      'border-radius:3px 0 0 3px;';
+
+    // Turn card on left half
     turnCard.style.cssText =
-      `left:0; top:0; width:${psz}px; height:${psz}px;
-       transform-origin:right center;`;
+      `left:0;top:0;width:${ap}px;height:${ap}px;` +
+      `transform-origin:right center;position:absolute;z-index:2;transform-style:preserve-3d;`;
 
-    // shadow on right static page
+    // Shadow sweeping over static page
     if (fromS.length === 2) {
       pgShadow.style.cssText =
-        `left:${psz + SPINE_W}px; top:0; width:${psz}px; height:${psz}px;
-         background:linear-gradient(to right,rgba(0,0,0,.45),transparent);
-         animation:shadowBwd ${DUR}ms ease forwards;`;
+        `left:${ap + SPINE_W}px;top:0;width:${ap}px;height:${ap}px;` +
+        `background:linear-gradient(to right,rgba(0,0,0,.45),transparent);` +
+        `animation:shadowBwd ${DUR}ms ease forwards;z-index:3;position:absolute;`;
     } else {
-      pgShadow.style.display = 'none';
+      pgShadow.style.cssText = 'display:none';
     }
 
     turnCard.style.animation = `turnBwd ${DUR}ms cubic-bezier(.4,0,.2,1) forwards`;
   }
 
-  // Snap to new spread at midpoint (when page is edge-on and invisible)
+  // After animation: swap to resting state
   setTimeout(() => {
     cur = to;
-    resize();
-    renderRest(cur);
-  }, DUR / 2);
-
-  // Clean up after animation
-  setTimeout(() => {
-    animEl.style.display = 'none';
-    // clear animation to allow re-trigger
     turnCard.style.animation = 'none';
-    pgShadow.style.animation = 'none';
-    pgShadow.style.display   = '';
+    resize();          // recalculate psz for new spread
+    renderRest(cur);   // update rest with destination spread
+    rest.style.visibility = '';   // restore rest
+    animEl.style.display  = 'none';
     busy = false;
-  }, DUR + 30);
+  }, DUR + 20);
 }
 
 /* ── Controls ── */
