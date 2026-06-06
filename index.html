@@ -149,6 +149,25 @@ const TOTAL = 18;
 const SRCS  = Array.from({length: TOTAL}, (_, i) =>
   `pages/page-${String(i + 1).padStart(2, '0')}.jpg`);
 
+/*
+  StPageFlip en landscape SIEMPRE muestra spreads de dos páginas.
+  Con showCover, la portada queda emparejada con una página en blanco.
+  Fix: anteponer una página oscura generada en canvas para que el
+  primer spread sea [oscuro | portada] y no se vea el blanco.
+  El array interno (ALL_SRCS) tiene 19 items; el índice 0 es la página oscura.
+*/
+function makeDarkPage(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#1e293b');
+  g.addColorStop(1, '#0f172a');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
 const viewer   = document.getElementById('viewer');
 const bookWrap = document.getElementById('bookWrap');
 const flipEl   = document.getElementById('flipbook');
@@ -174,7 +193,7 @@ SRCS.forEach((src, i) => {
   const img = document.createElement('img');
   img.src = src; img.alt = ''; img.loading = 'lazy';
   d.appendChild(img);
-  d.addEventListener('click', () => pf?.flip(i));
+  d.addEventListener('click', () => pf?.flip(i + 1)); // +1 because index 0 is the dark page
   thumbsEl.appendChild(d);
 });
 const thumbEls = thumbsEl.querySelectorAll('.thumb');
@@ -189,35 +208,26 @@ function calcSz() {
 /* ── UI update ── */
 function updateUI() {
   if (!pf) return;
+  // idx = left-page index in ALL_SRCS (0 = dark page, 1-18 = real pages)
   const idx = pf.getCurrentPageIndex();
 
-  // StPageFlip page numbering with showCover:
-  //   idx 0  = cover (shown alone)
-  //   idx 1  = first body left page
-  //   ...
-  //   idx 17 = back cover (shown alone)
   const isFirst = idx <= 0;
-  const isLast  = idx >= TOTAL - 1;
+  const isLast  = idx >= TOTAL; // idx 18 = last real page (alone)
 
   arrowL.disabled = btnFirst.disabled = btnPrev.disabled = isFirst;
   arrowR.disabled = btnLast.disabled  = btnNext.disabled = isLast;
 
-  // Counter: show page range visible on screen
+  // Counter uses real-page numbers (1-18), skip the dark page (idx 0)
   let label;
-  if (idx === 0)        label = `1 / ${TOTAL}`;
-  else if (idx >= TOTAL - 1) label = `${TOTAL} / ${TOTAL}`;
-  else if (idx % 2 === 1)    label = `${idx + 1}–${idx + 2} / ${TOTAL}`;
-  else                       label = `${idx}–${idx + 1} / ${TOTAL}`;
+  if (idx === 0)       label = `1 / ${TOTAL}`;          // [dark | p1]
+  else if (idx >= TOTAL) label = `${TOTAL} / ${TOTAL}`; // [p18] alone
+  else                 label = `${idx}–${Math.min(idx + 1, TOTAL)} / ${TOTAL}`;
   counter.textContent = label;
 
-  // Thumbs
-  thumbEls.forEach((t, i) => {
-    const active = (idx === 0 && i === 0)
-      || (idx >= TOTAL - 1 && i === TOTAL - 1)
-      || (i === idx || i === idx + 1);
-    t.classList.toggle('active', active);
-  });
-  const scrollTo = Math.min(idx, TOTAL - 1);
+  // Thumbs — thumb i → real page i+1 → ALL_SRCS index i+1
+  const visibles = new Set([idx, idx + 1]);
+  thumbEls.forEach((t, i) => t.classList.toggle('active', visibles.has(i + 1)));
+  const scrollTo = Math.max(0, Math.min(idx - 1, TOTAL - 1));
   thumbEls[scrollTo]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 }
 
@@ -233,6 +243,10 @@ function initFlip() {
     pf = null;
   }
 
+  // ALL_SRCS: [darkPage, page-01, page-02, ..., page-18] — 19 total
+  // The dark page occupies index 0; the first spread is [dark | portada].
+  const ALL_SRCS = [makeDarkPage(sz, sz), ...SRCS];
+
   pf = new St.PageFlip(flipEl, {
     width:  sz,
     height: sz,
@@ -243,21 +257,21 @@ function initFlip() {
     maxWidth:  sz,
     maxHeight: sz,
 
-    showCover:           true,   // cover and back shown as single pages
+    showCover:           false,  // dark page handles the "no blank left" issue
     usePortrait:         false,  // always double-page spread
     autoSize:            false,
-    drawShadow:          true,   // built-in canvas shadow
-    flippingTime:        800,    // ms — smooth but not slow
+    drawShadow:          true,
+    flippingTime:        800,
     maxShadowOpacity:    0.6,
     mobileScrollSupport: false,
     useMouseEvents:      true,
     swipeDistance:       30,
-    clickEventForward:   true,   // clicking right half goes forward
+    clickEventForward:   true,
     startZIndex:         0,
   });
 
   // ← loadFromImages only, NO manual img injection
-  pf.loadFromImages(SRCS);
+  pf.loadFromImages(ALL_SRCS);
 
   pf.on('flip',        updateUI);
   pf.on('changeState', updateUI);
@@ -272,17 +286,17 @@ function initFlip() {
 /* ── Controls ── */
 arrowL.addEventListener  ('click', () => pf?.flipPrev());
 arrowR.addEventListener  ('click', () => pf?.flipNext());
-btnFirst.addEventListener('click', () => pf?.flip(0));
+btnFirst.addEventListener('click', () => pf?.flip(0));         // dark page = spread [dark|p1]
 btnPrev.addEventListener ('click', () => pf?.flipPrev());
 btnNext.addEventListener ('click', () => pf?.flipNext());
-btnLast.addEventListener ('click', () => pf?.flip(TOTAL - 1));
+btnLast.addEventListener ('click', () => pf?.flip(TOTAL));     // ALL_SRCS index 18 = p18
 
 document.addEventListener('keydown', e => {
   if (!initDone) return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') pf?.flipNext();
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   pf?.flipPrev();
   if (e.key === 'Home') pf?.flip(0);
-  if (e.key === 'End')  pf?.flip(TOTAL - 1);
+  if (e.key === 'End')  pf?.flip(TOTAL);
 });
 
 /* Touch swipe */
