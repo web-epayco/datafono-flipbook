@@ -168,9 +168,11 @@ const btnLast  = document.getElementById('btnLast');
 const btnFs    = document.getElementById('btnFs');
 const thumbsEl = document.getElementById('thumbs');
 
-let pf       = null;
-let initDone = false;
-let fsActive = false;
+let pf                 = null;
+let initDone           = false;
+let fsActive           = false;
+let fsTransition       = false; // true during fullscreen enter/exit — blocks resize reinit
+let isPortrait         = false;
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -188,9 +190,12 @@ const thumbEls = thumbsEl.querySelectorAll('.thumb');
 /* ── Page size calc ── */
 function calcSz() {
   const r  = viewer.getBoundingClientRect();
-  // In fullscreen, innerWidth/Height are the most reliable source
-  const vw = r.width  > 10 ? r.width  : (window.innerWidth);
-  const vh = r.height > 10 ? r.height : (window.innerHeight - 140); // subtract header + bottom
+  const vw = r.width  > 10 ? r.width  : window.innerWidth;
+  const vh = r.height > 10 ? r.height : window.innerHeight - 140;
+  if (isPortrait) {
+    // Single-page view: fill viewport width, leaving room for arrows + controls
+    return Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, 520)));
+  }
   return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, 680)));
 }
 
@@ -199,43 +204,62 @@ function updateUI() {
   if (!pf) return;
   const idx = pf.getCurrentPageIndex();
 
+  // In portrait mode every page is shown alone; in landscape last spread is idx 16
   const isFirst = idx <= 0;
-  const isLast  = idx >= TOTAL - 2; // last spread: idx 16 (p16 left, p17 back-cover right)
+  const isLast  = isPortrait ? idx >= TOTAL - 1 : idx >= TOTAL - 2;
 
   arrowL.disabled = btnFirst.disabled = btnPrev.disabled = isFirst;
   arrowR.disabled = btnLast.disabled  = btnNext.disabled = isLast;
 
   let label;
-  if (isFirst)     label = `1 / ${TOTAL}`;
-  else if (isLast) label = `${TOTAL} / ${TOTAL}`;
-  else             label = `${idx + 1}–${Math.min(idx + 2, TOTAL)} / ${TOTAL}`;
+  if (isPortrait) {
+    label = `${Math.min(idx + 1, TOTAL)} / ${TOTAL}`;
+  } else if (isFirst) {
+    label = `1 / ${TOTAL}`;
+  } else if (isLast) {
+    label = `${TOTAL} / ${TOTAL}`;
+  } else {
+    label = `${idx + 1}–${Math.min(idx + 2, TOTAL)} / ${TOTAL}`;
+  }
   counter.textContent = label;
 
-  let visibles;
-  if (isFirst)     visibles = new Set([0]);
-  else if (isLast) visibles = new Set([TOTAL - 1]);
-  else             visibles = new Set([idx, idx + 1]);
+  const visibles = isPortrait
+    ? new Set([Math.min(idx, TOTAL - 1)])
+    : isFirst  ? new Set([0])
+    : isLast   ? new Set([TOTAL - 1])
+    :            new Set([idx, idx + 1]);
 
   thumbEls.forEach((t, i) => t.classList.toggle('active', visibles.has(i)));
   const scrollTo = isFirst ? 0 : isLast ? TOTAL - 1 : idx;
-  thumbEls[scrollTo]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
+  thumbEls[Math.min(scrollTo, TOTAL - 1)]
+    ?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 
-  // clip-path hides the blank half; translateX(±25%) re-centers the visible page
-  // (25% of bookWrap = 25% of 2*sz = sz/2, which centers the visible half)
-  if (isFirst) {
-    bookWrap.style.clipPath  = 'inset(0 0 0 50%)';   // hide left blank page
-    bookWrap.style.transform = 'translateX(-25%)';    // center the cover (right half)
-  } else if (isLast) {
-    bookWrap.style.clipPath  = 'inset(0 50% 0 0)';   // hide right blank page
-    bookWrap.style.transform = 'translateX(25%)';     // center the back cover (left half)
+  // Landscape: clip-path hides the blank half of the spread; portrait: no clip needed
+  if (!isPortrait) {
+    if (isFirst) {
+      bookWrap.style.clipPath  = 'inset(0 0 0 50%)';
+      bookWrap.style.transform = 'translateX(-25%)';
+    } else if (isLast) {
+      bookWrap.style.clipPath  = 'inset(0 50% 0 0)';
+      bookWrap.style.transform = 'translateX(25%)';
+    } else {
+      bookWrap.style.clipPath  = 'inset(0 0 0 0%)';
+      bookWrap.style.transform = 'translateX(0)';
+    }
   } else {
-    bookWrap.style.clipPath  = 'inset(0 0 0 0%)';    // no clip — full spread
-    bookWrap.style.transform = 'translateX(0)';
+    bookWrap.style.clipPath  = '';
+    bookWrap.style.transform = '';
   }
 }
 
 /* ── Init / reinit StPageFlip ── */
 function initFlip() {
+  // Detect portrait: viewer taller than wide → single-page mode
+  const r  = viewer.getBoundingClientRect();
+  const vw = r.width  > 10 ? r.width  : window.innerWidth;
+  const vh = r.height > 10 ? r.height : window.innerHeight - 140;
+  isPortrait = vw < vh;
+
   const sz = calcSz();
 
   // Reset clip + transform instantly (no animation) before reinit
@@ -260,8 +284,8 @@ function initFlip() {
     maxWidth:  sz,
     maxHeight: sz,
 
-    showCover:           true,   // cover (p1) and back cover (p18) shown alone, centered
-    usePortrait:         false,  // always double-page spread
+    showCover:           !isPortrait, // cover trick only needed in landscape
+    usePortrait:         isPortrait,  // single-page on portrait devices
     autoSize:            false,
     drawShadow:          true,
     flippingTime:        800,
@@ -316,10 +340,11 @@ btnFs.addEventListener('click', () => {
   else document.exitFullscreen();
 });
 
-/* Resize — reinit with new dimensions (skip while native fullscreen is active) */
+/* Resize — reinit with new dimensions */
 let resizeTimer;
 window.addEventListener('resize', () => {
-  if (fsActive) return;
+  // Skip resize-triggered reinit during fullscreen transitions (enter or exit)
+  if (fsActive || fsTransition) return;
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     const pg = pf?.getCurrentPageIndex() ?? 0;
@@ -331,11 +356,10 @@ window.addEventListener('resize', () => {
 document.addEventListener('fullscreenchange', () => {
   fsActive = !!document.fullscreenElement;
   clearTimeout(resizeTimer);
-  if (!fsActive) {
-    // Exiting fullscreen — reinit to fit the restored viewport
-    resizeTimer = setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(initFlip)), 200);
-  }
-  // Entering fullscreen — keep existing canvas, no reinit needed
+  // Block resize reinit for 700ms around any fullscreen transition
+  fsTransition = true;
+  setTimeout(() => { fsTransition = false; }, 700);
+  // No initFlip() on enter or exit — existing canvas stays visible
 });
 
 /* ── Boot ── */
