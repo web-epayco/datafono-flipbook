@@ -186,7 +186,7 @@ let initDone           = false;
 let fsActive           = false;
 let fsTransition       = false; // true during fullscreen enter/exit — blocks resize reinit
 let isPortrait         = false;
-let _dpr               = 1; // device pixel ratio captured at last initFlip()
+let _szVisual          = 80; // CSS visual page size captured at last initFlip()
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -201,19 +201,23 @@ SRCS.forEach((src, i) => {
 });
 const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
-/* ── Page size calc — returns the VISUAL (CSS) page size; stores _dpr ── */
+/* ── Page size calc — returns the VISUAL (CSS) page size; stores _szVisual ── */
 function calcSz() {
   const r   = viewer.getBoundingClientRect();
   const vw  = r.width  > 10 ? r.width  : window.innerWidth;
   const vh  = r.height > 10 ? r.height : window.innerHeight - 140;
-  _dpr = window.devicePixelRatio || 1;
-  // maxVisual: the largest CSS size where buffer pixels ≤ source pixels (no upscale)
-  // canvas buffer = szVisual * _dpr; cap at SRC_PX so buffer never exceeds source
-  const maxVisual = Math.floor(SRC_PX / _dpr);
+  const dpr = window.devicePixelRatio || 1;
+  // Cap: szVisual * dpr ≤ SRC_PX ensures the canvas buffer (SRC_PX) is never upscaled
+  // relative to what the screen can physically show (szVisual * dpr physical pixels).
+  const maxVisual = Math.floor(SRC_PX / dpr);
+  let sz;
   if (isPortrait) {
-    return Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, maxVisual)));
+    sz = Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, maxVisual)));
+  } else {
+    sz = Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, maxVisual)));
   }
-  return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, maxVisual)));
+  _szVisual = sz;
+  return sz;
 }
 
 /* ── UI update ── */
@@ -251,11 +255,12 @@ function updateUI() {
   thumbEls[Math.min(scrollTo, TOTAL - 1)]
     ?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 
-  // scale(1/_dpr) compensates for the high-res canvas buffer (szVisual * _dpr px).
-  // The buffer is _dpr× larger than the CSS display size, so we scale it back down.
-  // clip-path and translateX percentages are in the pre-scale coordinate space and
-  // work out correctly: translateX(-25%) of (2×buffer) after scale(1/_dpr) = szVisual/2.
-  const sc = `scale(${(1 / _dpr).toFixed(6)})`;
+  // Canvas buffer is always SRC_PX (985px). scale(_szVisual/SRC_PX) maps the large
+  // buffer down to the intended visual CSS size. Any screen — 1×, 2×, 3× — gets a
+  // 985px buffer and displays it at szVisual CSS px (= szVisual×dpr physical px ≤ 985).
+  // The translateX(-25%) / clip-path cover math is unchanged: all percentages are in
+  // pre-scale space and the algebra resolves to szVisual-based offsets after the scale.
+  const sc = `scale(${(_szVisual / SRC_PX).toFixed(6)})`;
   if (!isPortrait) {
     if (isFirst) {
       bookWrap.style.clipPath  = 'inset(0 0 0 50%)';
@@ -281,10 +286,11 @@ function initFlip() {
   const vh = r.height > 10 ? r.height : window.innerHeight - 140;
   isPortrait = vw < vh;
 
-  const szVisual = calcSz(); // CSS visual size; also updates _dpr
-  // Pass the high-res buffer size to StPageFlip so the canvas buffer matches physical pixels.
-  // bookWrap is then scaled down by scale(1/_dpr) in updateUI to achieve the desired visual size.
-  const sz = Math.round(szVisual * _dpr);
+  calcSz(); // updates _szVisual; we don't use the return value directly here
+  // Always use the full source resolution as the canvas buffer.
+  // updateUI applies scale(_szVisual/SRC_PX) to bookWrap so the element appears at the
+  // correct visual size. This guarantees a near-1:1 or downscale render on every device.
+  const sz = SRC_PX;
 
   // Reset clip + transform instantly (no animation) before reinit
   bookWrap.style.transition = 'none';
