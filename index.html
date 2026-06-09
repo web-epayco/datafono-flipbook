@@ -92,6 +92,13 @@
       .arrow  { width: 34px; height: 34px; }
       .arrow-l { left: 2px; } .arrow-r { right: 2px; }
     }
+
+    /* Landscape on small screens: hide thumbnails to maximise book area */
+    @media (max-height: 500px) {
+      .thumbs  { display: none; }
+      .bottom  { padding-top: 4px; padding-bottom: 5px; gap: 0; }
+      .viewer  { padding-top: 4px; padding-bottom: 4px; }
+    }
   </style>
 </head>
 <body>
@@ -150,8 +157,9 @@
 <script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
 
 <script>
-const TOTAL = 18;
-const SRCS  = Array.from({length: TOTAL}, (_, i) =>
+const TOTAL  = 18;
+const SRC_PX = 985; // source image width = height (all pages are 985×985 px)
+const SRCS   = Array.from({length: TOTAL}, (_, i) =>
   `pages/page-${String(i + 1).padStart(2, '0')}.jpg`);
 
 const viewer   = document.getElementById('viewer');
@@ -189,14 +197,17 @@ const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
 /* ── Page size calc ── */
 function calcSz() {
-  const r  = viewer.getBoundingClientRect();
-  const vw = r.width  > 10 ? r.width  : window.innerWidth;
-  const vh = r.height > 10 ? r.height : window.innerHeight - 140;
+  const r   = viewer.getBoundingClientRect();
+  const vw  = r.width  > 10 ? r.width  : window.innerWidth;
+  const vh  = r.height > 10 ? r.height : window.innerHeight - 140;
+  const dpr = window.devicePixelRatio || 1;
+  // Never upscale beyond source pixels: SRC_PX / dpr gives the CSS size where
+  // physical pixels == source pixels (sharp on any display, no blur from upscaling)
+  const maxSz = Math.floor(SRC_PX / dpr);
   if (isPortrait) {
-    // Single-page view: fill viewport width, leaving room for arrows + controls
-    return Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, 520)));
+    return Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, maxSz)));
   }
-  return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, 680)));
+  return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, maxSz)));
 }
 
 /* ── UI update ── */
