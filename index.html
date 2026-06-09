@@ -166,16 +166,6 @@ const SRCS   = Array.from({length: TOTAL}, (_, i) =>
 // the browser cannot evict them from cache, ensuring instant reinits on resize/rotate.
 const _imgCache = SRCS.map(src => { const img = new Image(); img.src = src; return img; });
 
-// Force Lanczos/bicubic quality when StPageFlip scales source images into the canvas.
-// Without this, browsers default to low-quality bilinear on drawImage downscale.
-{
-  const _oc = HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext = function(t, o) {
-    const ctx = _oc.call(this, t, o);
-    if (ctx && t === '2d') { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; }
-    return ctx;
-  };
-}
 
 const viewer   = document.getElementById('viewer');
 const bookWrap = document.getElementById('bookWrap');
@@ -298,10 +288,11 @@ function initFlip() {
   isPortrait = vw < vh;
 
   calcSz(); // updates _szVisual and _dpr
-  // Canvas buffer = szVisual × dpr, capped at SRC_PX.
-  // On 1× screens: sz = szVisual → CSS scale = 1 (no scaling, no aliasing).
-  // On retina: sz = szVisual × dpr ≈ SRC_PX → GPU composites down by 1/dpr (sharp).
-  const sz = Math.min(SRC_PX, Math.round(_szVisual * _dpr));
+  // Always use the full source resolution as the canvas buffer so StPageFlip renders
+  // each page image at 1:1 (no in-canvas downscale). The GPU compositor then handles
+  // the CSS scale from SRC_PX down to _szVisual — which is higher quality than canvas
+  // drawImage at reduced size, especially for text-heavy pages.
+  const sz = SRC_PX;
   _sz = sz;
 
   // Reset clip + transform instantly (no animation) before reinit
@@ -414,8 +405,9 @@ window.addEventListener('resize', () => {
     const newSz = Math.min(SRC_PX, Math.round(_szVisual * _dpr));
 
     if (pf && newSz <= _sz) {
-      // Existing canvas is already large enough — just rescale via CSS transform.
-      // No reinit: no blank-screen risk, no loadFromImages call needed.
+      // Canvas is already at full source resolution (SRC_PX) — just update CSS scale.
+      // With sz=SRC_PX, newSz ≤ _sz is always true for same-orientation resizes,
+      // so this path is always taken: zero reinits, zero blank-screen risk.
       bookWrap.style.transition = 'none';
       updateUI();
       requestAnimationFrame(() => { bookWrap.style.transition = ''; });
