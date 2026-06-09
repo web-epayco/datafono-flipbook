@@ -170,6 +170,7 @@ const thumbsEl = document.getElementById('thumbs');
 
 let pf       = null;
 let initDone = false;
+let fsActive = false;
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -315,26 +316,26 @@ btnFs.addEventListener('click', () => {
   else document.exitFullscreen();
 });
 
-/* Resize — reinit with new dimensions */
+/* Resize — reinit with new dimensions (skip while native fullscreen is active) */
 let resizeTimer;
 window.addEventListener('resize', () => {
+  if (fsActive) return;
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     const pg = pf?.getCurrentPageIndex() ?? 0;
     initFlip();
-    // restore page after reinit
     pf?.on('init', () => { if (pg > 0) pf.flip(pg); });
   }, 250);
 });
 
 document.addEventListener('fullscreenchange', () => {
+  fsActive = !!document.fullscreenElement;
   clearTimeout(resizeTimer);
-  const pg = pf?.getCurrentPageIndex() ?? 0;
-  loading.style.display = 'flex'; // show spinner while layout settles
-  resizeTimer = setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-    initFlip();
-    if (pg > 0) pf?.on('init', () => pf.flip(pg));
-  })), 350);
+  if (!fsActive) {
+    // Exiting fullscreen — reinit to fit the restored viewport
+    resizeTimer = setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(initFlip)), 200);
+  }
+  // Entering fullscreen — keep existing canvas, no reinit needed
 });
 
 /* ── Boot ── */
