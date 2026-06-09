@@ -24,7 +24,8 @@
 
     /* Book wrap — sized by JS */
     #bookWrap { position: relative; display: flex; align-items: center;
-      justify-content: center; transition: transform .35s ease; }
+      justify-content: center;
+      transition: clip-path .35s ease, transform .35s ease; }
 
     /* StPageFlip injects a canvas here — keep container clean */
     #flipbook { display: block; }
@@ -163,9 +164,8 @@ const btnLast  = document.getElementById('btnLast');
 const btnFs    = document.getElementById('btnFs');
 const thumbsEl = document.getElementById('thumbs');
 
-let pf        = null;
-let initDone  = false;
-let currentSz = 0;
+let pf       = null;
+let initDone = false;
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -214,19 +214,27 @@ function updateUI() {
   const scrollTo = isFirst ? 0 : isLast ? TOTAL - 1 : idx;
   thumbEls[scrollTo]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 
-  // Shift bookWrap to center the single cover/back-cover page, hiding the blank side
-  if (isFirst)     bookWrap.style.transform = `translateX(${-currentSz / 2}px)`;
-  else if (isLast) bookWrap.style.transform = `translateX(${currentSz / 2}px)`;
-  else             bookWrap.style.transform = 'translateX(0)';
+  // clip-path hides the blank half; translateX(±25%) re-centers the visible page
+  // (25% of bookWrap = 25% of 2*sz = sz/2, which centers the visible half)
+  if (isFirst) {
+    bookWrap.style.clipPath  = 'inset(0 0 0 50%)';   // hide left blank page
+    bookWrap.style.transform = 'translateX(-25%)';    // center the cover (right half)
+  } else if (isLast) {
+    bookWrap.style.clipPath  = 'inset(0 50% 0 0)';   // hide right blank page
+    bookWrap.style.transform = 'translateX(25%)';     // center the back cover (left half)
+  } else {
+    bookWrap.style.clipPath  = 'inset(0 0 0 0%)';    // no clip — full spread
+    bookWrap.style.transform = 'translateX(0)';
+  }
 }
 
 /* ── Init / reinit StPageFlip ── */
 function initFlip() {
   const sz = calcSz();
-  currentSz = sz;
 
-  // Reset transform instantly (no animation) before reinit
+  // Reset clip + transform instantly (no animation) before reinit
   bookWrap.style.transition = 'none';
+  bookWrap.style.clipPath   = '';
   bookWrap.style.transform  = '';
 
   flipEl.innerHTML = '';
