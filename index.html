@@ -166,6 +166,17 @@ const SRCS   = Array.from({length: TOTAL}, (_, i) =>
 // the browser cannot evict them from cache, ensuring instant reinits on resize/rotate.
 const _imgCache = SRCS.map(src => { const img = new Image(); img.src = src; return img; });
 
+// Force Lanczos/bicubic quality when StPageFlip scales source images into the canvas.
+// Without this, browsers default to low-quality bilinear on drawImage downscale.
+{
+  const _oc = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function(t, o) {
+    const ctx = _oc.call(this, t, o);
+    if (ctx && t === '2d') { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; }
+    return ctx;
+  };
+}
+
 const viewer   = document.getElementById('viewer');
 const bookWrap = document.getElementById('bookWrap');
 const flipEl   = document.getElementById('flipbook');
@@ -186,7 +197,9 @@ let initDone           = false;
 let fsActive           = false;
 let fsTransition       = false; // true during fullscreen enter/exit — blocks resize reinit
 let isPortrait         = false;
-let _szVisual          = 80; // CSS visual page size captured at last initFlip()
+let _dpr      = 1;       // device pixel ratio at last calcSz()
+let _szVisual = 80;      // CSS visual page size (≤ SRC_PX / _dpr)
+let _sz       = SRC_PX; // active canvas buffer size = min(SRC_PX, round(_szVisual × _dpr))
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -201,15 +214,14 @@ SRCS.forEach((src, i) => {
 });
 const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
-/* ── Page size calc — returns the VISUAL (CSS) page size; stores _szVisual ── */
+/* ── Page size calc — returns the VISUAL (CSS) page size; updates _dpr + _szVisual ── */
 function calcSz() {
   const r   = viewer.getBoundingClientRect();
   const vw  = r.width  > 10 ? r.width  : window.innerWidth;
   const vh  = r.height > 10 ? r.height : window.innerHeight - 140;
-  const dpr = window.devicePixelRatio || 1;
-  // Cap: szVisual * dpr ≤ SRC_PX ensures the canvas buffer (SRC_PX) is never upscaled
-  // relative to what the screen can physically show (szVisual * dpr physical pixels).
-  const maxVisual = Math.floor(SRC_PX / dpr);
+  _dpr = window.devicePixelRatio || 1;
+  // maxVisual cap: _szVisual × _dpr ≤ SRC_PX → canvas buffer never exceeds source resolution
+  const maxVisual = Math.floor(SRC_PX / _dpr);
   let sz;
   if (isPortrait) {
     sz = Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, maxVisual)));
@@ -255,12 +267,11 @@ function updateUI() {
   thumbEls[Math.min(scrollTo, TOTAL - 1)]
     ?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 
-  // Canvas buffer is always SRC_PX (985px). scale(_szVisual/SRC_PX) maps the large
-  // buffer down to the intended visual CSS size. Any screen — 1×, 2×, 3× — gets a
-  // 985px buffer and displays it at szVisual CSS px (= szVisual×dpr physical px ≤ 985).
-  // The translateX(-25%) / clip-path cover math is unchanged: all percentages are in
-  // pre-scale space and the algebra resolves to szVisual-based offsets after the scale.
-  const sc = `scale(${(_szVisual / SRC_PX).toFixed(6)})`;
+  // scale maps the canvas buffer (_sz px) to the intended visual CSS size (_szVisual px).
+  // On 1× screens _sz = _szVisual → scale(1) = no-op (zero aliasing, perfect 1:1 render).
+  // On retina screens _sz = _szVisual×_dpr → scale(1/_dpr) — GPU compositor halves/thirds it,
+  // yielding _szVisual×_dpr physical px from a _sz-px buffer (near-native, no upscale blur).
+  const sc = `scale(${(_szVisual / _sz).toFixed(6)})`;
   if (!isPortrait) {
     if (isFirst) {
       bookWrap.style.clipPath  = 'inset(0 0 0 50%)';
@@ -286,11 +297,12 @@ function initFlip() {
   const vh = r.height > 10 ? r.height : window.innerHeight - 140;
   isPortrait = vw < vh;
 
-  calcSz(); // updates _szVisual; we don't use the return value directly here
-  // Always use the full source resolution as the canvas buffer.
-  // updateUI applies scale(_szVisual/SRC_PX) to bookWrap so the element appears at the
-  // correct visual size. This guarantees a near-1:1 or downscale render on every device.
-  const sz = SRC_PX;
+  calcSz(); // updates _szVisual and _dpr
+  // Canvas buffer = szVisual × dpr, capped at SRC_PX.
+  // On 1× screens: sz = szVisual → CSS scale = 1 (no scaling, no aliasing).
+  // On retina: sz = szVisual × dpr ≈ SRC_PX → GPU composites down by 1/dpr (sharp).
+  const sz = Math.min(SRC_PX, Math.round(_szVisual * _dpr));
+  _sz = sz;
 
   // Reset clip + transform instantly (no animation) before reinit
   bookWrap.style.transition = 'none';
@@ -377,17 +389,42 @@ btnFs.addEventListener('click', () => {
   else document.exitFullscreen();
 });
 
-/* Resize — reinit with new dimensions */
+/* Resize — smart handler: reinit only when necessary, otherwise just update CSS scale */
 let resizeTimer;
 window.addEventListener('resize', () => {
-  // Skip resize-triggered reinit during fullscreen transitions (enter or exit)
   if (fsActive || fsTransition) return;
   clearTimeout(resizeTimer);
   // 500ms: gives iOS Safari time to settle viewport dimensions after rotation
   resizeTimer = setTimeout(() => {
-    const pg = pf?.getCurrentPageIndex() ?? 0;
-    initFlip();
-    pf?.on('init', () => { if (pg > 0) pf.flip(pg); });
+    const r   = viewer.getBoundingClientRect();
+    const vw  = r.width  > 10 ? r.width  : window.innerWidth;
+    const vh  = r.height > 10 ? r.height : window.innerHeight - 140;
+    const newIsPortrait = vw < vh;
+
+    if (newIsPortrait !== isPortrait) {
+      // Orientation changed — full reinit (usePortrait / showCover must flip)
+      const pg = pf?.getCurrentPageIndex() ?? 0;
+      initFlip(); // sets isPortrait internally from fresh BoundingClientRect
+      pf?.on('init', () => { if (pg > 0) pf.flip(pg); });
+      return;
+    }
+
+    // Same orientation — recalculate visual size and required buffer
+    calcSz(); // updates _szVisual and _dpr
+    const newSz = Math.min(SRC_PX, Math.round(_szVisual * _dpr));
+
+    if (pf && newSz <= _sz) {
+      // Existing canvas is already large enough — just rescale via CSS transform.
+      // No reinit: no blank-screen risk, no loadFromImages call needed.
+      bookWrap.style.transition = 'none';
+      updateUI();
+      requestAnimationFrame(() => { bookWrap.style.transition = ''; });
+    } else {
+      // Window grew significantly — reinit to get a larger canvas and sharper quality
+      const pg = pf?.getCurrentPageIndex() ?? 0;
+      initFlip();
+      pf?.on('init', () => { if (pg > 0) pf.flip(pg); });
+    }
   }, 500);
 });
 
