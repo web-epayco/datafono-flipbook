@@ -9,7 +9,11 @@
     html, body { height: 100%; background: #0f172a; color: #e2e8f0;
       font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
 
-    .app { display: flex; flex-direction: column; height: 100dvh; }
+    .app { display: flex; flex-direction: column; height: 100%; }
+    /* 100dvh can mis-compute during native fullscreen transitions; 100% inherits correctly */
+    :fullscreen      .app { height: 100vh; }
+    :-webkit-full-screen .app { height: 100vh; }
+    :-moz-full-screen    .app { height: 100vh; }
 
     /* ── Header ── */
     .header { flex-shrink: 0; background: #1e293b; border-bottom: 1px solid #1e3a5f;
@@ -183,8 +187,9 @@ const thumbEls = thumbsEl.querySelectorAll('.thumb');
 /* ── Page size calc ── */
 function calcSz() {
   const r  = viewer.getBoundingClientRect();
-  const vw = r.width  || viewer.clientWidth  || window.innerWidth;
-  const vh = r.height || viewer.clientHeight || window.innerHeight;
+  // In fullscreen, innerWidth/Height are the most reliable source
+  const vw = r.width  > 10 ? r.width  : (window.innerWidth);
+  const vh = r.height > 10 ? r.height : (window.innerHeight - 140); // subtract header + bottom
   return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, 680)));
 }
 
@@ -325,11 +330,11 @@ window.addEventListener('resize', () => {
 document.addEventListener('fullscreenchange', () => {
   clearTimeout(resizeTimer);
   const pg = pf?.getCurrentPageIndex() ?? 0;
-  // double-RAF ensures layout has settled after the fullscreen transition
+  loading.style.display = 'flex'; // show spinner while layout settles
   resizeTimer = setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(() => {
     initFlip();
     if (pg > 0) pf?.on('init', () => pf.flip(pg));
-  })), 80);
+  })), 350);
 });
 
 /* ── Boot ── */
