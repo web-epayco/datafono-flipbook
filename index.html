@@ -162,6 +162,10 @@ const SRC_PX = 985; // source image width = height (all pages are 985×985 px)
 const SRCS   = Array.from({length: TOTAL}, (_, i) =>
   `pages/page-${String(i + 1).padStart(2, '0')}.jpg`);
 
+// Pre-load all pages into memory at startup. This keeps strong JS references so
+// the browser cannot evict them from cache, ensuring instant reinits on resize/rotate.
+const _imgCache = SRCS.map(src => { const img = new Image(); img.src = src; return img; });
+
 const viewer   = document.getElementById('viewer');
 const bookWrap = document.getElementById('bookWrap');
 const flipEl   = document.getElementById('flipbook');
@@ -177,10 +181,12 @@ const btnFs    = document.getElementById('btnFs');
 const thumbsEl = document.getElementById('thumbs');
 
 let pf                 = null;
+let pfGraveyard        = []; // old instances waiting to be destroyed after new one loads
 let initDone           = false;
 let fsActive           = false;
 let fsTransition       = false; // true during fullscreen enter/exit — blocks resize reinit
 let isPortrait         = false;
+let _dpr               = 1; // device pixel ratio captured at last initFlip()
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -195,19 +201,19 @@ SRCS.forEach((src, i) => {
 });
 const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
-/* ── Page size calc ── */
+/* ── Page size calc — returns the VISUAL (CSS) page size; stores _dpr ── */
 function calcSz() {
   const r   = viewer.getBoundingClientRect();
   const vw  = r.width  > 10 ? r.width  : window.innerWidth;
   const vh  = r.height > 10 ? r.height : window.innerHeight - 140;
-  const dpr = window.devicePixelRatio || 1;
-  // Never upscale beyond source pixels: SRC_PX / dpr gives the CSS size where
-  // physical pixels == source pixels (sharp on any display, no blur from upscaling)
-  const maxSz = Math.floor(SRC_PX / dpr);
+  _dpr = window.devicePixelRatio || 1;
+  // maxVisual: the largest CSS size where buffer pixels ≤ source pixels (no upscale)
+  // canvas buffer = szVisual * _dpr; cap at SRC_PX so buffer never exceeds source
+  const maxVisual = Math.floor(SRC_PX / _dpr);
   if (isPortrait) {
-    return Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, maxSz)));
+    return Math.max(80, Math.floor(Math.min(vw - 100, vh - 80, maxVisual)));
   }
-  return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, maxSz)));
+  return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, maxVisual)));
 }
 
 /* ── UI update ── */
@@ -245,21 +251,25 @@ function updateUI() {
   thumbEls[Math.min(scrollTo, TOTAL - 1)]
     ?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
 
-  // Landscape: clip-path hides the blank half of the spread; portrait: no clip needed
+  // scale(1/_dpr) compensates for the high-res canvas buffer (szVisual * _dpr px).
+  // The buffer is _dpr× larger than the CSS display size, so we scale it back down.
+  // clip-path and translateX percentages are in the pre-scale coordinate space and
+  // work out correctly: translateX(-25%) of (2×buffer) after scale(1/_dpr) = szVisual/2.
+  const sc = `scale(${(1 / _dpr).toFixed(6)})`;
   if (!isPortrait) {
     if (isFirst) {
       bookWrap.style.clipPath  = 'inset(0 0 0 50%)';
-      bookWrap.style.transform = 'translateX(-25%)';
+      bookWrap.style.transform = `${sc} translateX(-25%)`;
     } else if (isLast) {
       bookWrap.style.clipPath  = 'inset(0 50% 0 0)';
-      bookWrap.style.transform = 'translateX(25%)';
+      bookWrap.style.transform = `${sc} translateX(25%)`;
     } else {
       bookWrap.style.clipPath  = 'inset(0 0 0 0%)';
-      bookWrap.style.transform = 'translateX(0)';
+      bookWrap.style.transform = sc;
     }
   } else {
     bookWrap.style.clipPath  = '';
-    bookWrap.style.transform = '';
+    bookWrap.style.transform = sc;
   }
 }
 
@@ -271,7 +281,10 @@ function initFlip() {
   const vh = r.height > 10 ? r.height : window.innerHeight - 140;
   isPortrait = vw < vh;
 
-  const sz = calcSz();
+  const szVisual = calcSz(); // CSS visual size; also updates _dpr
+  // Pass the high-res buffer size to StPageFlip so the canvas buffer matches physical pixels.
+  // bookWrap is then scaled down by scale(1/_dpr) in updateUI to achieve the desired visual size.
+  const sz = Math.round(szVisual * _dpr);
 
   // Reset clip + transform instantly (no animation) before reinit
   bookWrap.style.transition = 'none';
@@ -280,8 +293,11 @@ function initFlip() {
 
   flipEl.innerHTML = '';
 
+  // Defer destroy: calling pf.destroy() before loadFromImages on a new instance can
+  // silently break the new instance's rendering. Queue the old instance for cleanup
+  // and destroy it only after the new instance successfully fires its 'init' event.
   if (pf) {
-    try { pf.destroy(); } catch (_) {}
+    pfGraveyard.push(pf);
     pf = null;
   }
 
@@ -314,9 +330,13 @@ function initFlip() {
   pf.on('changeState', updateUI);
 
   pf.on('init', () => {
+    // New instance is stable — safe to destroy any zombied old instances now
+    pfGraveyard.forEach(old => { try { old.destroy(); } catch (_) {} });
+    pfGraveyard = [];
+
     loading.style.display = 'none';
     initDone = true;
-    updateUI(); // sets initial transform without animation
+    updateUI(); // sets initial scale + clip-path without animation
     requestAnimationFrame(() => { bookWrap.style.transition = ''; }); // re-enable CSS transition
   });
 }
@@ -357,11 +377,12 @@ window.addEventListener('resize', () => {
   // Skip resize-triggered reinit during fullscreen transitions (enter or exit)
   if (fsActive || fsTransition) return;
   clearTimeout(resizeTimer);
+  // 500ms: gives iOS Safari time to settle viewport dimensions after rotation
   resizeTimer = setTimeout(() => {
     const pg = pf?.getCurrentPageIndex() ?? 0;
     initFlip();
     pf?.on('init', () => { if (pg > 0) pf.flip(pg); });
-  }, 250);
+  }, 500);
 });
 
 document.addEventListener('fullscreenchange', () => {
