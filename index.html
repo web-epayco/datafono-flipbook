@@ -28,7 +28,8 @@
 
     /* Book wrap — sized by JS */
     #bookWrap { position: relative; display: flex; align-items: center;
-      justify-content: center;
+      justify-content: center; will-change: transform;
+      filter: contrast(1.12) saturate(1.06);
       transition: clip-path .35s ease, transform .35s ease; }
 
     /* StPageFlip injects a canvas here — keep container clean */
