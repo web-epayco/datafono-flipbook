@@ -29,14 +29,18 @@
     /* Book wrap — sized by JS */
     #bookWrap { position: relative; display: flex; align-items: center;
       justify-content: center; will-change: transform;
-      filter: contrast(1.12) saturate(1.06);
+      filter: contrast(1.18) saturate(1.09);
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: high-quality;
       transition: clip-path .35s ease, transform .35s ease; }
 
     /* StPageFlip injects a canvas here — keep container clean */
     #flipbook { display: block; }
 
-    /* StPageFlip canvas (dark theme background behind pages) */
-    #flipbook canvas { display: block; }
+    /* StPageFlip canvas — high-quality resampling on GPU scale */
+    #flipbook canvas { display: block;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: high-quality; }
 
     /* Loading overlay */
     #loading { position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -343,6 +347,11 @@ function initFlip() {
     // New instance is stable — safe to destroy any zombied old instances now
     pfGraveyard.forEach(old => { try { old.destroy(); } catch (_) {} });
     pfGraveyard = [];
+
+    // Force high-quality resampling on every canvas StPageFlip created
+    flipEl.querySelectorAll('canvas').forEach(c => {
+      c.style.imageRendering = 'high-quality';
+    });
 
     loading.style.display = 'none';
     initDone = true;
