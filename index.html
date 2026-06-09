@@ -24,7 +24,7 @@
 
     /* Book wrap — sized by JS */
     #bookWrap { position: relative; display: flex; align-items: center;
-      justify-content: center; }
+      justify-content: center; transition: transform .35s ease; }
 
     /* StPageFlip injects a canvas here — keep container clean */
     #flipbook { display: block; }
@@ -163,8 +163,9 @@ const btnLast  = document.getElementById('btnLast');
 const btnFs    = document.getElementById('btnFs');
 const thumbsEl = document.getElementById('thumbs');
 
-let pf       = null;
-let initDone = false;
+let pf        = null;
+let initDone  = false;
+let currentSz = 0;
 
 /* ── Thumbnails ── */
 SRCS.forEach((src, i) => {
@@ -212,11 +213,21 @@ function updateUI() {
   thumbEls.forEach((t, i) => t.classList.toggle('active', visibles.has(i)));
   const scrollTo = isFirst ? 0 : isLast ? TOTAL - 1 : idx;
   thumbEls[scrollTo]?.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
+
+  // Shift bookWrap to center the single cover/back-cover page, hiding the blank side
+  if (isFirst)     bookWrap.style.transform = `translateX(${-currentSz / 2}px)`;
+  else if (isLast) bookWrap.style.transform = `translateX(${currentSz / 2}px)`;
+  else             bookWrap.style.transform = 'translateX(0)';
 }
 
 /* ── Init / reinit StPageFlip ── */
 function initFlip() {
   const sz = calcSz();
+  currentSz = sz;
+
+  // Reset transform instantly (no animation) before reinit
+  bookWrap.style.transition = 'none';
+  bookWrap.style.transform  = '';
 
   flipEl.innerHTML = '';
 
@@ -256,7 +267,8 @@ function initFlip() {
   pf.on('init', () => {
     loading.style.display = 'none';
     initDone = true;
-    updateUI();
+    updateUI(); // sets initial transform without animation
+    requestAnimationFrame(() => { bookWrap.style.transition = ''; }); // re-enable CSS transition
   });
 }
 
