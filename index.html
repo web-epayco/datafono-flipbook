@@ -181,9 +181,10 @@ const thumbEls = thumbsEl.querySelectorAll('.thumb');
 
 /* ── Page size calc ── */
 function calcSz() {
-  const vw = viewer.clientWidth;
-  const vh = viewer.clientHeight;
-  return Math.floor(Math.min(vh - 16, (vw - 8) / 2, 680));
+  const r  = viewer.getBoundingClientRect();
+  const vw = r.width  || viewer.clientWidth  || window.innerWidth;
+  const vh = r.height || viewer.clientHeight || window.innerHeight;
+  return Math.max(80, Math.floor(Math.min(vh - 16, (vw - 8) / 2, 680)));
 }
 
 /* ── UI update ── */
@@ -243,7 +244,7 @@ function initFlip() {
     mobileScrollSupport: false,
     useMouseEvents:      true,
     swipeDistance:       30,
-    clickEventForward:   true,
+    clickEventForward:   false, // our arrow/button controls handle all navigation
     startZIndex:         0,
   });
 
@@ -303,7 +304,12 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('fullscreenchange', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(initFlip, 150);
+  const pg = pf?.getCurrentPageIndex() ?? 0;
+  // double-RAF ensures layout has settled after the fullscreen transition
+  resizeTimer = setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+    initFlip();
+    if (pg > 0) pf?.on('init', () => pf.flip(pg));
+  })), 80);
 });
 
 /* ── Boot ── */
