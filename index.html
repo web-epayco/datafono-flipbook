@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guía de uso del datáfono — ePayco</title>
+  <link rel="icon" href="favicon.png" />
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; background: #0f172a; color: #e2e8f0;
@@ -17,7 +18,8 @@
 
     /* ── Header ── */
     .header { flex-shrink: 0; background: #1e293b; border-bottom: 1px solid #1e3a5f;
-      padding: 11px 20px; }
+      padding: 11px 20px; display: flex; align-items: center; gap: 14px; }
+    .logo { height: 34px; width: auto; flex-shrink: 0; }
     .hl { font-size: 1.1rem; font-weight: 700; color: #00c6b8; }
     .hl span { color: #e2e8f0; font-weight: 300; }
     .hs { font-size: .7rem; color: #64748b; margin-top: 1px; }
@@ -106,8 +108,7 @@
 <div class="app">
 
   <header class="header">
-    <div class="hl">ePayco <span>Datáfono</span></div>
-    <div class="hs">Guía de uso del datáfono</div>
+    <img class="logo" src="logo.svg" alt="ePayco — Guía de uso del datáfono" />
   </header>
 
   <div class="viewer" id="viewer">
